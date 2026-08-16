@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+python-dotenv
+pydantic
+langchain
+langgraph
+langchain-openai
+pandas
+numpy
+requests
+yfinance
+# Required for ChatGoogleGenerativeAI and GoogleGenerativeAIEmbeddings
+langchain-google-genai
