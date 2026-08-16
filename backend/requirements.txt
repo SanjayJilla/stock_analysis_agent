@@ -9,5 +9,7 @@ pandas
 numpy
 requests
 yfinance
-# Required for ChatGoogleGenerativeAI and GoogleGenerativeAIEmbeddings
 langchain-google-genai
+langchain-community
+faiss-cpu
+psycopg2-binary
