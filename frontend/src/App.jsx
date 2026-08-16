@@ -711,7 +711,7 @@ export default function App() {
     return cleaned;
   };
 
-  // 1. One-Click Institutional Research Report Export (Markdown / Document)
+
   const exportReport = () => {
     const reportDate = liveTime.toISOString().slice(0, 10);
     const filename = `${ticker}_Equity_Research_Report_${reportDate}.md`;
@@ -926,7 +926,7 @@ ${activeStock.risks_text}
         </div>
       </header>
 
-      {/* 2. MAIN CONTAINER */}
+      
       <main className="content-container">
         {/* Search Bar & Quick Ticker Selector */}
         <section className="search-bar-row">
@@ -1074,7 +1074,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* Multi-Series Financial Price Chart */}
             <section className="chart-card-wrapper">
               {chartCoords ? (
                 <div className="single-chart-container">
@@ -1220,9 +1219,6 @@ ${activeStock.risks_text}
               )}
             </section>
 
-            {/* ========================================================================= */}
-            {/* 3. COMPACT TECHNICAL ANALYSIS CARD (Beginner-Friendly & Scannable) */}
-            {/* ========================================================================= */}
             <section className="technical-analysis-card">
               <div className="section-header-banner">
                 <Activity className="text-blue" size={20} />
@@ -1260,9 +1256,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* ========================================================================= */}
-            {/* 4. AI INVESTMENT VERDICT: WHETHER TO INVEST OR NOT */}
-            {/* ========================================================================= */}
             <section className="decision-section-card">
               <div className="section-header-banner">
                 <Sparkles className="text-blue" size={22} />
@@ -1295,9 +1288,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* ========================================================================= */}
-            {/* 5. DUAL-AGENT ADVERSARIAL DEBATE (Bull vs. Bear Case) */}
-            {/* ========================================================================= */}
             <section className="debate-section-card">
               <div className="section-header-banner">
                 <Scale className="text-blue" size={22} />
@@ -1331,9 +1321,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* ========================================================================= */}
-            {/* 5. RISK MATRIX BREAKDOWN */}
-            {/* ========================================================================= */}
             <section className="risk-matrix-section">
               <div className="section-header-banner">
                 <ShieldAlert className="text-red" size={22} />
@@ -1388,9 +1375,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* ========================================================================= */}
-            {/* 6. FUNDAMENTALS & BALANCE SHEET HEALTH */}
-            {/* ========================================================================= */}
             <section className="fundamentals-section">
               <div className="section-header-banner">
                 <BarChart3 className="text-purple" size={22} />
@@ -1468,9 +1452,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* ========================================================================= */}
-            {/* 7. BREAKING NEWS & CATALYSTS */}
-            {/* ========================================================================= */}
             <section className="news-section">
               <div className="section-header-banner">
                 <Newspaper className="text-blue" size={22} />
@@ -1505,9 +1486,6 @@ ${activeStock.risks_text}
               </div>
             </section>
 
-            {/* ========================================================================= */}
-            {/* 8. HISTORICAL EVOLUTION & THESIS TRACKING */}
-            {/* ========================================================================= */}
             <section className="history-comparison-section">
               <div className="section-header-banner">
                 <History className="text-blue" size={22} />
@@ -1539,9 +1517,6 @@ ${activeStock.risks_text}
               )}
             </section>
 
-            {/* ========================================================================= */}
-            {/* 9. INTERACTIVE AI CHAT ASSISTANT (Checkpointer) */}
-            {/* ========================================================================= */}
             <section className="embedded-chat-section">
               <div className="section-header-banner">
                 <MessageSquare className="text-blue" size={22} />
@@ -1585,7 +1560,6 @@ ${activeStock.risks_text}
           </div>
         )}
 
-        {/* ================= HISTORY VIEW ================= */}
         {activeTab === "history" && (
           <div className="history-view-page">
             <div className="section-heading-row">
@@ -1639,7 +1613,6 @@ ${activeStock.risks_text}
           </div>
         )}
 
-        {/* ================= WATCHLIST VIEW ================= */}
         {activeTab === "watchlist" && (
           <div className="watchlist-view-page">
             <div className="section-heading-row">

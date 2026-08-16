@@ -14,9 +14,7 @@ from app.utils.response import extract_text
 from app.config import GOOGLE_API_KEY
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# =====================================================================
-# 1. APPLICATION INITIALIZATION & CONFIGURATION
-# =====================================================================
+
 
 app = FastAPI(
     title="Stock Analyzer & Financial Intelligence Terminal",
@@ -33,9 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory Watchlist with popular default tickers
 WATCHLIST = ["OKLO", "AAPL", "NVDA", "TSLA", "MSFT"]
-
 
 @app.on_event("startup")
 def on_startup():
@@ -47,9 +43,6 @@ def on_startup():
     print("[Startup] Stock Analyzer Backend is ready!")
 
 
-# =====================================================================
-# 2. REQUEST & RESPONSE DATA MODELS
-# =====================================================================
 
 class AnalysisRequest(BaseModel):
     ticker: str = Field(..., example="OKLO", description="Stock ticker symbol")
@@ -83,9 +76,6 @@ class AnalysisResponse(BaseModel):
     thread_id: str
 
 
-# =====================================================================
-# 3. CORE API ENDPOINTS
-# =====================================================================
 
 @app.get("/")
 def root():

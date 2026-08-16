@@ -22,7 +22,7 @@ def load_memory(ticker):
     }
 
 
-# ADDED: Service function to save current completed agent analysis state to PostgreSQL
+
 def save_memory(state):
     """
     Extracts the newly generated analysis, current stock price, ticker, and user query
