@@ -4,10 +4,8 @@ from app.rag.retriever import (
 
 
 def rag_node(state):
-
-    ticker = state["ticker"]
-
-    query = state["query"]
+    ticker = state.get("ticker", "")
+    query = state.get("query") or state.get("user_query", f"What are {ticker}'s major risks and financials?")
 
     results = retrieve_company_information(
         ticker,
@@ -26,4 +24,4 @@ def rag_node(state):
 
     return {
         "rag_context": context
-    }
+    }

@@ -7,9 +7,8 @@ from pydantic import BaseModel, Field
 # Import our compiled LangGraph stock analysis agent
 from app.agent.graph import stock_agent
 
-# Import database functions for history and table initialization
 from app.memory.database import create_table, get_analysis_history, get_all_analyses
-from app.tools.market_data import get_stock_price, get_historical_data
+from app.tools.market_data import get_stock_price, get_historical_data, search_symbols
 from app.utils.response import extract_text
 from app.config import GOOGLE_API_KEY
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -31,7 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-WATCHLIST = ["OKLO", "AAPL", "NVDA", "TSLA", "MSFT"]
+WATCHLIST = ["AAPL", "NVDA"]
 
 @app.on_event("startup")
 def on_startup():
@@ -102,6 +101,14 @@ def analyze_stock(request: AnalysisRequest):
     if not ticker_clean:
         raise HTTPException(status_code=400, detail="Please provide a valid stock ticker symbol.")
 
+    # Fast preliminary ticker verification via market data
+    price_check = get_stock_price(ticker_clean)
+    if "error" in price_check:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Stock ticker '{ticker_clean}' was not found on global financial exchanges or is currently delisted. Please verify the symbol."
+        )
+
     user_query = request.question or request.query or "Provide a comprehensive stock breakout and valuation analysis."
     thread_id = request.thread_id or str(uuid.uuid4())
 
@@ -128,7 +135,7 @@ def analyze_stock(request: AnalysisRequest):
             final_analysis=final_text,
             analysis=final_text,
             risks=result.get("risks"),
-            market_data=result.get("market_data"),
+            market_data=result.get("market_data", price_check),
             financial_data=result.get("financial_data"),
             technical_data=result.get("technical_data"),
             news_data=result.get("news_data"),
@@ -138,6 +145,8 @@ def analyze_stock(request: AnalysisRequest):
             thread_id=thread_id
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[API Error] Failed during analysis for {ticker_clean}: {e}")
         raise HTTPException(status_code=500, detail=f"Error executing stock analysis: {str(e)}")
@@ -169,7 +178,7 @@ def chat_with_agent(request: ChatRequest):
         pass
 
     try:
-        llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", google_api_key=GOOGLE_API_KEY)
+        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=GOOGLE_API_KEY)
         prompt = f"""
 You are an expert Wall Street financial analyst and interactive assistant in the Stock Analyzer terminal.
 Active Monitored Stock: {ticker}
@@ -199,12 +208,9 @@ Instructions:
         }
 
     except Exception as e:
-        # Fallback response
-        return {
-            "ticker": ticker,
-            "thread_id": request.thread_id,
-            "reply": f"Based on financial analysis for {ticker}: {request.message}. Favorable momentum is observed above support levels with sound risk-reward dynamics."
-        }
+        print(f"[Chat Error] {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating analyst response: {str(e)}")
+
 
 
 @app.get("/api/history")
@@ -233,6 +239,21 @@ def get_ticker_history(ticker: str, limit: int = 10):
     }
 
 
+@app.get("/api/search-symbols")
+def search_stock_symbols(q: str = "", limit: int = 8):
+    """
+    Real-time stock symbol and company name autocomplete search across global exchanges.
+    """
+    if not q.strip():
+        return {"query": q, "results": []}
+    results = search_symbols(q.strip(), limit=limit)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results
+    }
+
+
 @app.get("/api/quick-price/{ticker}")
 def get_quick_price(ticker: str):
     """
@@ -241,6 +262,7 @@ def get_quick_price(ticker: str):
     ticker_clean = ticker.strip().upper()
     price_data = get_stock_price(ticker_clean)
     return price_data
+
 
 
 @app.get("/api/historical-chart/{ticker}")

@@ -1,20 +1,113 @@
+import requests
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
+
+def search_symbols(query: str, limit: int = 8):
+    """
+    Searches Yahoo Finance for matching global stocks, tickers, and company names.
+    Supports names like 'Tata', 'Google', 'Reliance', 'Infosys', 'Adani', 'Apple', etc.
+    """
+    clean_q = query.strip()
+    if not clean_q:
+        return []
+
+    url = "https://query2.finance.yahoo.com/v1/finance/search"
+    params = {
+        "q": clean_q,
+        "quotesCount": limit,
+        "newsCount": 0,
+        "enableFuzzyQuery": True,
+        "quotesQueryId": "tss_match_phrase_query"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    try:
+        res = requests.get(url, params=params, headers=headers, timeout=4)
+        if not res.ok:
+            return []
+        data = res.json()
+        quotes = data.get("quotes", [])
+        
+        results = []
+        for q in quotes:
+            symbol = q.get("symbol")
+            if not symbol:
+                continue
+            name = q.get("longname") or q.get("shortname") or symbol
+            exchange = q.get("exchDisp") or q.get("exchange") or "Exchange"
+            quote_type = q.get("quoteType") or q.get("typeDisp") or "EQUITY"
+            sector = q.get("sector") or q.get("industry") or ""
+            
+            # Prioritize equity and ETFs
+            if quote_type in ["EQUITY", "ETF", "Equity", "Etf"]:
+                results.append({
+                    "symbol": symbol.upper(),
+                    "name": name,
+                    "exchange": exchange,
+                    "quote_type": quote_type,
+                    "sector": sector
+                })
+        return results
+    except Exception as e:
+        print(f"[Symbol Search Error] {e}")
+        return []
+
+
+def resolve_ticker(query: str) -> str:
+    """
+    Resolves a search query (e.g. 'TATA', 'GOOGLE', 'RELIANCE', 'AAPL') to a valid Yahoo Finance ticker symbol.
+    """
+    clean_q = query.strip().upper()
+    if not clean_q:
+        return clean_q
+
+    # Check if directly valid
+    try:
+        t = yf.Ticker(clean_q)
+        hist = t.history(period="1d")
+        if not hist.empty:
+            return clean_q
+    except Exception:
+        pass
+
+    # Search for matching symbols
+    matches = search_symbols(query, limit=5)
+    if matches:
+        return matches[0]["symbol"]
+
+    return clean_q
+
+
 def get_stock_price(ticker: str):
-    stock = yf.Ticker(ticker)
+    clean_ticker = ticker.strip().upper()
+    stock = yf.Ticker(clean_ticker)
     history = stock.history(period="1d")
 
+    # If empty, try auto-resolving from company name (e.g. TATA -> TATAMOTORS.NS)
     if history.empty:
+        resolved = resolve_ticker(ticker)
+        if resolved != clean_ticker:
+            clean_ticker = resolved
+            stock = yf.Ticker(clean_ticker)
+            history = stock.history(period="1d")
+
+    if history.empty:
+        # Search for alternative suggestions to guide the user
+        suggestions = search_symbols(ticker, limit=4)
         return {
-            "error": f"No market data found for {ticker}"
+            "error": f"No market data found for '{ticker}'",
+            "suggestions": suggestions
         }
+
     latest = history.iloc[-1]
     
     # Extract company long name if available
-    company_name = ticker.upper()
+    company_name = clean_ticker
     try:
         info = stock.info
         company_name = info.get("longName") or info.get("shortName") or company_name
@@ -24,7 +117,7 @@ def get_stock_price(ticker: str):
     now_str = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p ET")
 
     return {
-        "ticker": ticker.upper(),
+        "ticker": clean_ticker,
         "company": company_name,
         "price": float(round(latest["Close"], 2)),
         "open": float(round(latest["Open"], 2)),
@@ -35,6 +128,7 @@ def get_stock_price(ticker: str):
     }
 
 
+
 def get_historical_data(ticker: str, period: str = "6mo"):
     """
     Fetches historical OHLCV data and computes technical overlays for chart rendering:
@@ -43,10 +137,18 @@ def get_historical_data(ticker: str, period: str = "6mo"):
     - Bollinger Bands (Upper and Lower bounds)
     - Support and Resistance baseline levels
     """
-    stock = yf.Ticker(ticker)
+    clean_ticker = ticker.strip().upper()
+    stock = yf.Ticker(clean_ticker)
     
     # Download 1 year history to ensure enough data points
     history = stock.history(period="1y")
+    if history.empty:
+        resolved = resolve_ticker(ticker)
+        if resolved != clean_ticker:
+            clean_ticker = resolved
+            stock = yf.Ticker(clean_ticker)
+            history = stock.history(period="1y")
+
     if history.empty:
         return {
             "error": f"No historical data found for {ticker}",
@@ -55,7 +157,7 @@ def get_historical_data(ticker: str, period: str = "6mo"):
         }
 
     # Extract company long name
-    company_name = ticker.upper()
+    company_name = clean_ticker
     try:
         info = stock.info
         company_name = info.get("longName") or info.get("shortName") or company_name

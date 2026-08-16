@@ -28,356 +28,50 @@ import "./App.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-// Comprehensive fallback data for instant responsiveness across major tickers
-const STOCK_PRESETS = {
-  OKLO: {
-    company: "Oklo Inc.",
-    sector: "Energy",
-    industry: "Nuclear Clean Energy",
-    price: 79.88,
-    open: 69.50,
-    high: 80.88,
-    low: 67.20,
-    volume: 9340000,
-    support: 61.01,
-    resistance: 80.88,
-    sma20: 71.86,
-    sma50: 67.69,
-    sma150: 47.97,
-    sma200: 42.10,
-    rsi: 61.7,
-    bb_upper: 82.40,
-    bb_lower: 58.90,
-    market_cap: 9800000000,
-    pe_ratio: null,
-    forward_pe: 45.2,
-    price_to_book: 8.4,
-    operating_margin: -0.42,
-    profit_margin: -0.38,
-    roe: -0.15,
-    revenue_growth: 1.25,
-    total_revenue: 125000000,
-    free_cash_flow: -45000000,
-    debt_to_equity: 12.5,
-    verdict: "BULLISH BREAKOUT / ACCUMULATE",
-    verdict_desc: "Oklo is exhibiting strong upward momentum approaching its 52-week high resistance ($80.88). Rising volume and RSI (61.7) confirm breakout conviction with strong support at $61.01.",
-    bull_case: "1. Multi-gigawatt AI data center power demand creates secular nuclear purchase agreements.\n2. Small modular reactor design enables rapid deployment with zero carbon footprint.\n3. Institutional momentum and high relative volume approaching 52-week breakout at $80.88.",
-    bear_case: "1. Regulatory licensing delays from NRC could push commercial operational timelines into 2027+.\n2. Negative operating cash flow (-$45M) creates continuous capital dilution risk.\n3. High beta volatility vulnerable to macro tech sector drawdowns.",
-    short_term_strategy: "Watch for a daily close above $80.88 with volume > 10M for momentum continuation toward $90-$95.",
-    long_term_strategy: "Nuclear energy tailwinds and clean tech demand provide secular support. Scale in on pullbacks to SMA 50 ($67.69).",
-    future_outlook: "Key catalyst will be commercial deployment milestones and NRC licensing updates expected in H2.",
-    risks_text: "1. Regulatory licensing delays with the Nuclear Regulatory Commission (NRC).\n2. Negative operating cash flow requires prudent capital management.\n3. High beta volatility if broader growth equities experience pullbacks.",
-    news: [
-      {
-        title: "Oklo Surges Near 52-Week High on Clean Energy Nuclear Demand",
-        source: "Bloomberg",
-        published_at: "2025-09-11",
-        description: "Small modular reactor developer Oklo gains institutional backing amid AI data center power demand.",
-        url: "https://bloomberg.com"
-      },
-      {
-        title: "Nuclear Tech Stocks Rally as Hyperscalers Secure Long-Term Power",
-        source: "Reuters",
-        published_at: "2025-09-10",
-        description: "Tech giants sign landmark clean power purchase agreements, boosting advanced fission developers.",
-        url: "https://reuters.com"
-      }
-    ]
-  },
-  AAPL: {
-    company: "Apple Inc.",
-    sector: "Technology",
-    industry: "Consumer Electronics",
-    price: 305.93,
-    open: 306.00,
-    high: 307.49,
-    low: 304.30,
-    volume: 28186700,
-    support: 290.50,
-    resistance: 334.00,
-    sma20: 318.22,
-    sma50: 308.95,
-    sma150: 294.10,
-    sma200: 279.99,
-    rsi: 26.09,
-    bb_upper: 338.50,
-    bb_lower: 298.00,
-    market_cap: 4464797000000,
-    pe_ratio: 34.96,
-    forward_pe: 32.18,
-    price_to_book: 41.57,
-    operating_margin: 0.326,
-    profit_margin: 0.276,
-    roe: 1.487,
-    revenue_growth: 0.164,
-    total_revenue: 466822000000,
-    free_cash_flow: 107721000000,
-    debt_to_equity: 78.45,
-    verdict: "OVERSOLD / ATTRACTIVE ACCUMULATION",
-    verdict_desc: "Apple's 14-day RSI (26.09) is deeply oversold following recent pullbacks, while remaining firmly above its 200-day moving average ($279.99). World-class free cash flow ($107.7B) provides a strong margin of safety.",
-    bull_case: "1. Record quarterly Free Cash Flow ($107.7B) provides immense downside protection and share buybacks.\n2. 2.2 billion active device installed base powers recurring high-margin Services revenue (>74% gross margin).\n3. Deeply oversold 14-day RSI (26.09) with strong support above 200-day moving average ($279.99).",
-    bear_case: "1. Premium valuation multiple (~35x P/E) leaves zero margin for iPhone replacement cycle delays.\n2. Foreign supply chain concentration remains exposed to geopolitical tariff shifts.\n3. Stagnant hardware innovation growth in saturated core markets.",
-    short_term_strategy: "Anticipate a mean-reversion technical bounce back toward the 50-day SMA ($308.95) and 20-day SMA ($318.22).",
-    long_term_strategy: "Dollar-cost average at current oversold levels. Long-term services revenue expansion and AI integration drive multi-year upside.",
-    future_outlook: "Upcoming hardware refresh cycles and high-margin Services growth remain key catalysts.",
-    risks_text: "1. Premium valuation multiples (P/E ~35x) leave limited margin for missed earnings.\n2. Foreign supply chain dependencies require ongoing diversification.\n3. Fading macro tariff tailwinds in hardware assembly.",
-    news: [
-      {
-        title: "Apple Reports Blowout June Quarter with Record Free Cash Flow",
-        source: "MarketWatch",
-        published_at: "2026-08-14",
-        description: "Services revenue hits all-time high as Apple ecosystem surpasses 2.2 billion active devices.",
-        url: "https://marketwatch.com"
-      },
-      {
-        title: "Wall Street Analysts Reiterate Overweight on Apple with $358 Target",
-        source: "24/7 Wall St.",
-        published_at: "2026-08-13",
-        description: "Lowest-beta mega-cap provides defensive growth and record share repurchases.",
-        url: "https://247wallst.com"
-      }
-    ]
-  },
-  NVDA: {
-    company: "NVIDIA Corporation",
-    sector: "Technology",
-    industry: "Semiconductors",
-    price: 182.40,
-    open: 178.20,
-    high: 184.50,
-    low: 177.10,
-    volume: 54300000,
-    support: 165.00,
-    resistance: 195.00,
-    sma20: 175.40,
-    sma50: 168.20,
-    sma150: 148.50,
-    sma200: 135.00,
-    rsi: 64.2,
-    bb_upper: 192.00,
-    bb_lower: 158.00,
-    market_cap: 4480000000000,
-    pe_ratio: 46.2,
-    forward_pe: 34.5,
-    price_to_book: 38.2,
-    operating_margin: 0.62,
-    profit_margin: 0.55,
-    roe: 1.15,
-    revenue_growth: 1.22,
-    total_revenue: 128000000000,
-    free_cash_flow: 62000000000,
-    debt_to_equity: 18.2,
-    verdict: "STRONG BULLISH / ACCUMULATE",
-    verdict_desc: "NVIDIA maintains dominant market share in AI accelerators with exceptional 62% operating margins and rapid revenue growth.",
-    bull_case: "1. Dominant 85%+ market share in AI accelerators with extraordinary 62% operating margins.\n2. Next-gen Blackwell architecture completely sold out across hyperscalers (Microsoft, Meta, Google, AWS).\n3. Unrivaled CUDA software developer moat creates extreme switching costs for enterprise customers.",
-    bear_case: "1. Extreme customer concentration (top 4 cloud hyperscalers drive 40%+ of revenue) posing Capex cliff risk.\n2. Expanding geopolitical export restrictions on high-end chips to foreign markets.\n3. Custom in-house silicon (Google TPU, Amazon Trainium) gradually pressuring long-term pricing power.",
-    short_term_strategy: "Target $195 resistance. Use pullbacks to SMA 20 ($175.40) as dip-buying zones.",
-    long_term_strategy: "Core AI infrastructure holding. Strong cash flow enables massive R&D and platform moat.",
-    future_outlook: "Next-generation Blackwell architecture ramping up with strong data center backlog.",
-    risks_text: "1. High customer concentration among hyperscale cloud providers.\n2. Export restrictions and geopolitical supply chain bottlenecks.",
-    news: [
-      {
-        title: "NVIDIA AI Accelerator Demand Remains Sold Out Through 2026",
-        source: "CNBC",
-        published_at: "2026-08-14",
-        description: "Cloud providers increase AI capital expenditures, driving record semiconductor orders.",
-        url: "https://cnbc.com"
-      }
-    ]
-  },
-  TSLA: {
-    company: "Tesla Inc.",
-    sector: "Consumer Discretionary",
-    industry: "Auto & Clean Tech",
-    price: 242.80,
-    open: 238.00,
-    high: 245.20,
-    low: 236.40,
-    volume: 68400000,
-    support: 215.00,
-    resistance: 265.00,
-    sma20: 234.10,
-    sma50: 228.40,
-    sma150: 205.00,
-    sma200: 198.50,
-    rsi: 58.9,
-    bb_upper: 258.00,
-    bb_lower: 210.00,
-    market_cap: 775000000000,
-    pe_ratio: 62.4,
-    forward_pe: 48.1,
-    price_to_book: 11.2,
-    operating_margin: 0.082,
-    profit_margin: 0.065,
-    roe: 0.14,
-    revenue_growth: 0.085,
-    total_revenue: 97500000000,
-    free_cash_flow: 4200000000,
-    debt_to_equity: 14.8,
-    verdict: "NEUTRAL / HOLD ON BREAKOUT CONFIRMATION",
-    verdict_desc: "Tesla is consolidating above key moving averages. Energy storage growth offsets automotive margin pressures.",
-    bull_case: "1. Megapack Utility Energy Storage deployments doubling YoY with rapid gross margin expansion.\n2. Autonomous Full Self-Driving (FSD) and Robotaxi platform represent massive high-margin software optionality.\n3. Industry-leading manufacturing cost curve and supercharger ecosystem network effect.",
-    bear_case: "1. Global EV price wars compressing core automotive gross margins from 28% down to single digits.\n2. Lofty 62x P/E multiple relies heavily on unproven regulatory approval for unsupervised autonomous robotaxis.\n3. Rising competition from low-cost Chinese EV manufacturers in international markets.",
-    short_term_strategy: "Wait for a clean breakout above $265 resistance or buy near $228 support.",
-    long_term_strategy: "Autonomous driving / Robotaxi execution and Energy storage deployments are the primary long-term drivers.",
-    future_outlook: "Full Self-Driving (FSD) software rollout and Next-Gen platform ramp.",
-    risks_text: "1. Global EV price competition compressing automotive gross margins.\n2. High valuation reliance on future autonomous software milestones.",
-    news: [
-      {
-        title: "Tesla Energy Storage Deployments Double Year-Over-Year",
-        source: "Reuters",
-        published_at: "2026-08-12",
-        description: "Megapack utility installations surge as grid stabilization demand accelerates globally.",
-        url: "https://reuters.com"
-      }
-    ]
-  },
-  MSFT: {
-    company: "Microsoft Corporation",
-    sector: "Technology",
-    industry: "Software & Cloud",
-    price: 448.20,
-    open: 445.00,
-    high: 451.00,
-    low: 444.10,
-    volume: 21500000,
-    support: 420.00,
-    resistance: 468.00,
-    sma20: 442.10,
-    sma50: 435.80,
-    sma150: 418.00,
-    sma200: 405.00,
-    rsi: 57.3,
-    bb_upper: 462.00,
-    bb_lower: 422.00,
-    market_cap: 3340000000000,
-    pe_ratio: 35.8,
-    forward_pe: 31.2,
-    price_to_book: 12.8,
-    operating_margin: 0.445,
-    profit_margin: 0.358,
-    roe: 0.385,
-    revenue_growth: 0.152,
-    total_revenue: 245000000000,
-    free_cash_flow: 74000000000,
-    debt_to_equity: 35.4,
-    verdict: "CORE BUY / STEADY ACCUMULATION",
-    verdict_desc: "Microsoft demonstrates steady growth across Azure cloud and AI Copilot commercial subscriptions with elite 44.5% operating margins.",
-    bull_case: "1. Azure cloud revenue accelerating 29%+ YoY fueled by OpenAI and enterprise AI Copilot enterprise adoption.\n2. Enterprise software monopoly with unmatched enterprise distribution and 44.5% operating margins.\n3. Fortress balance sheet generating $74B+ in annual free cash flow for aggressive capital return.",
-    bear_case: "1. Massive AI infrastructure capital expenditures ($19B/quarter) compressing near-term free cash flow yields.\n2. Slower-than-expected enterprise monetization of Copilot seats relative to lofty expectations.\n3. Regulatory antitrust scrutiny in cloud bundling and gaming integrations.",
-    short_term_strategy: "Accumulate on pullbacks toward the 50-day SMA ($435.80).",
-    long_term_strategy: "Premier enterprise software and cloud foundation with resilient recurring cash flows.",
-    future_outlook: "Azure AI enterprise workload expansion and cloud infrastructure monetization.",
-    risks_text: "1. Heavy ongoing AI data center CapEx spending.\n2. Antitrust regulatory scrutiny on software bundling.",
-    news: [
-      {
-        title: "Microsoft Azure AI Revenue Surges 30% in Latest Quarter",
-        source: "Wall Street Journal",
-        published_at: "2026-08-11",
-        description: "Enterprise adoption of cloud AI services reaches new milestones.",
-        url: "https://wsj.com"
-      }
-    ]
-  },
-  AMZN: {
-    company: "Amazon.com Inc.",
-    sector: "Consumer Discretionary",
-    industry: "E-Commerce & Cloud",
-    price: 198.50,
-    open: 195.20,
-    high: 200.40,
-    low: 194.80,
-    volume: 38200000,
-    support: 182.00,
-    resistance: 208.00,
-    sma20: 194.20,
-    sma50: 189.50,
-    sma150: 178.00,
-    sma200: 168.00,
-    rsi: 60.5,
-    bb_upper: 206.00,
-    bb_lower: 182.00,
-    market_cap: 2080000000000,
-    pe_ratio: 42.1,
-    forward_pe: 33.4,
-    price_to_book: 8.5,
-    operating_margin: 0.098,
-    profit_margin: 0.078,
-    roe: 0.22,
-    revenue_growth: 0.125,
-    total_revenue: 620000000000,
-    free_cash_flow: 53000000000,
-    debt_to_equity: 54.2,
-    verdict: "BULLISH ACCUMULATION",
-    verdict_desc: "Amazon's AWS growth re-acceleration and expanding retail advertising margins provide durable operational leverage.",
-    bull_case: "1. AWS AI growth acceleration with enterprise migration to custom Trainium silicon.\n2. High-margin retail advertising business growing 20%+ YoY.\n3. Regionalized fulfillment network driving record shipping cost efficiencies.",
-    bear_case: "1. Sensitivity of discretionary e-commerce spending to macro inflation.\n2. Cloud price competition from Microsoft Azure and Google Cloud.",
-    short_term_strategy: "Watch the $200 psychological barrier. Breakout targets $208-$215.",
-    long_term_strategy: "AWS AI growth, international retail margin expansion, and high-margin ad business provide robust multi-year tailwinds.",
-    future_outlook: "Expanding fulfillment efficiency and AWS custom silicon (Trainium) deployments.",
-    risks_text: "1. Global consumer spending sensitivity to macroeconomic conditions.\n2. Cloud price competition from peers.",
-    news: [
-      {
-        title: "AWS Cloud Growth Accelerates as Generative AI Workloads Expand",
-        source: "TechCrunch",
-        published_at: "2026-08-10",
-        description: "Amazon Web Services posts strong double-digit growth driven by enterprise modernization.",
-        url: "https://techcrunch.com"
-      }
-    ]
-  }
+// Safe initial state for dynamic stock analysis
+const INITIAL_STOCK_STATE = {
+  company: "Apple Inc.",
+  sector: "Technology",
+  industry: "Consumer Electronics",
+  price: 305.93,
+  open: 306.00,
+  high: 307.49,
+  low: 304.30,
+  volume: 28186700,
+  support: 290.50,
+  resistance: 334.00,
+  sma20: 318.22,
+  sma50: 308.95,
+  sma150: 294.10,
+  sma200: 279.99,
+  rsi: 58.5,
+  bb_upper: 332.10,
+  bb_lower: 294.50,
+  market_cap: 4464797000000,
+  pe_ratio: 34.96,
+  forward_pe: 32.18,
+  price_to_book: 41.57,
+  operating_margin: 0.326,
+  profit_margin: 0.276,
+  roe: 1.487,
+  revenue_growth: 0.164,
+  total_revenue: 466822000000,
+  free_cash_flow: 107721000000,
+  debt_to_equity: 78.45,
+  verdict: "ANALYZING LIVE SIGNALS",
+  verdict_desc: "Connecting to live financial market stream and LangGraph multi-agent pipeline...",
+  bull_case: "",
+  bear_case: "",
+  short_term_strategy: "Connecting to live order book...",
+  long_term_strategy: "Evaluating fundamentals...",
+  future_outlook: "Processing earnings & macro catalysts...",
+  risks_text: "Evaluating live risk metrics...",
+  news: []
 };
 
-// Generate realistic chart history points based on baseline price
-function generateMockHistory(symbol, basePrice, period) {
-  const countMap = { "10D": 10, "1M": 22, "3M": 66, "6M": 130, "1Y": 252 };
-  const count = countMap[period] || 130;
-  const records = [];
-  
-  let current = basePrice * 0.75;
-  const now = new Date();
-  
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i * (period === "10D" ? 1 : period === "1M" ? 1.4 : 2));
-    
-    // Add realistic random walk trend towards basePrice
-    const delta = (Math.random() - 0.48) * (basePrice * 0.025);
-    current = Math.max(basePrice * 0.4, current + delta);
-    
-    const high = current * (1 + Math.random() * 0.015);
-    const low = current * (1 - Math.random() * 0.015);
-    const open = low + Math.random() * (high - low);
-    const close = low + Math.random() * (high - low);
-    const vol = Math.floor(Math.random() * 30000000) + 5000000;
-    
-    records.push({
-      date: d.toISOString().slice(0, 10),
-      open: Number(open.toFixed(2)),
-      high: Number(high.toFixed(2)),
-      low: Number(low.toFixed(2)),
-      close: Number(close.toFixed(2)),
-      volume: vol,
-      sma20: Number((current * 0.98).toFixed(2)),
-      sma50: Number((current * 0.94).toFixed(2)),
-      bb_upper: Number((current * 1.06).toFixed(2)),
-      bb_lower: Number((current * 0.92).toFixed(2)),
-      support: Number((basePrice * 0.78).toFixed(2)),
-      resistance: Number((basePrice * 1.02).toFixed(2))
-    });
-  }
-  
-  // Set last record to match basePrice
-  if (records.length > 0) {
-    records[records.length - 1].close = basePrice;
-  }
-  
-  return records;
-}
-
 export default function App() {
-  const [ticker, setTicker] = useState("OKLO");
-  const [searchInput, setSearchInput] = useState("OKLO");
+  const [ticker, setTicker] = useState("AAPL");
+  const [searchInput, setSearchInput] = useState("AAPL");
   const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard' | 'history' | 'watchlist'
   
   const [period, setPeriod] = useState("6M");
@@ -398,14 +92,121 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Analysis & Chart State
-  const [activeStock, setActiveStock] = useState(STOCK_PRESETS["OKLO"]);
-  const [chartRecords, setChartRecords] = useState(() => generateMockHistory("OKLO", 79.88, "6M"));
-  const [historyList, setHistoryList] = useState([]);
-  const [watchlist, setWatchlist] = useState(Object.keys(STOCK_PRESETS));
-
-  // Hover state
+  // Analysis & Chart State - 100% Dynamic from Backend
+  const [activeStock, setActiveStock] = useState(INITIAL_STOCK_STATE);
+  const [chartRecords, setChartRecords] = useState([]);
   const [hoverIndex, setHoverIndex] = useState(null);
+  
+  // Initialize history from localStorage immediately so history is never lost
+  const [historyList, setHistoryList] = useState(() => {
+    try {
+      const cached = localStorage.getItem("stock_terminal_history_v2");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [watchlist, setWatchlist] = useState(["AAPL", "NVDA"]);
+
+  // Sync history with backend PostgreSQL on mount
+  const fetchAndSyncHistory = async (targetTicker = null) => {
+    try {
+      const url = targetTicker 
+        ? `${API_BASE_URL}/api/history/${targetTicker}` 
+        : `${API_BASE_URL}/api/history`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const serverHistory = data.history || [];
+        if (serverHistory.length > 0) {
+          setHistoryList((prev) => {
+            // Merge server and local history uniquely by ID or timestamp+ticker
+            const combined = [...serverHistory];
+            prev.forEach((localItem) => {
+              const exists = combined.some(
+                (s) => s.id === localItem.id || (s.ticker === localItem.ticker && s.created_at === localItem.created_at)
+              );
+              if (!exists) combined.push(localItem);
+            });
+            // Sort newest first
+            combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+            try {
+              localStorage.setItem("stock_terminal_history_v2", JSON.stringify(combined.slice(0, 50)));
+            } catch {}
+            return combined;
+          });
+        }
+      }
+    } catch (e) {
+      // Offline fallback: historyList is already loaded from localStorage
+    }
+  };
+
+  useEffect(() => {
+    fetchAndSyncHistory();
+  }, []);
+
+  // Helper to record history locally & state
+  const saveToLocalHistory = (entry) => {
+    if (!entry || !entry.ticker) return;
+    setHistoryList((prev) => {
+      // Remove identical duplicate IDs or same-minute duplicates
+      const filtered = prev.filter(
+        (item) => item.id !== entry.id && !(item.ticker === entry.ticker && item.user_query === entry.user_query && item.created_at === entry.created_at)
+      );
+      const updated = [entry, ...filtered].slice(0, 50);
+      try {
+        localStorage.setItem("stock_terminal_history_v2", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const clearAllHistory = () => {
+    setHistoryList([]);
+    try {
+      localStorage.removeItem("stock_terminal_history_v2");
+    } catch {}
+  };
+
+  // Live Autocomplete Suggestions
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchWrapRef = useRef(null);
+
+  // Debounced global ticker and company name search
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/search-symbols?q=${encodeURIComponent(trimmed)}&limit=6`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.results || []);
+        }
+      } catch {}
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
 
   // Chat State
   const [chatMessages, setChatMessages] = useState([
@@ -425,110 +226,89 @@ export default function App() {
     }
   };
 
-  // Load stock data (instantly from preset or live backend)
+  // Load live stock data directly from FastAPI backend and LangGraph multi-agent
   const loadStock = async (symbolToLoad = ticker, selectedPeriod = period) => {
     const symbol = symbolToLoad.trim().toUpperCase();
     if (!symbol) return;
 
-    // Keep user at the top of the page when searching or changing stocks
     window.scrollTo({ top: 0, behavior: "instant" });
-
-    setTicker(symbol);
     setSearchInput(symbol);
     setError("");
+    setLoading(true);
 
-    // 1. Instant Preset Update (zero lag)
-    const preset = STOCK_PRESETS[symbol] || {
-      company: `${symbol} Corporation`,
-      sector: "Equities",
-      industry: "Market Stock",
-      price: 150.00,
-      open: 148.00,
-      high: 152.50,
-      low: 147.00,
-      volume: 18500000,
-      support: 135.00,
-      resistance: 155.00,
-      sma20: 147.00,
-      sma50: 142.00,
-      sma150: 130.00,
-      sma200: 122.00,
-      rsi: 54.2,
-      bb_upper: 158.00,
-      bb_lower: 136.00,
-      market_cap: 85000000000,
-      pe_ratio: 28.5,
-      forward_pe: 24.2,
-      price_to_book: 6.8,
-      operating_margin: 0.22,
-      profit_margin: 0.18,
-      roe: 0.24,
-      revenue_growth: 0.14,
-      total_revenue: 45000000000,
-      free_cash_flow: 12000000000,
-      debt_to_equity: 42.0,
-      verdict: "BALANCED ACCUMULATION",
-      verdict_desc: `${symbol} exhibits steady price action above major moving averages with stable cash flows.`,
-      short_term_strategy: "Monitor volume on resistance tests.",
-      long_term_strategy: "Accumulate on pullbacks toward SMA 50.",
-      future_outlook: "Product expansion and quarterly earnings execution.",
-      risks_text: "1. Macro sector rotation risks.\n2. General market volatility.",
-      news: [
-        {
-          title: `${symbol} Consolidates Above Key Moving Averages`,
-          source: "Financial News",
-          published_at: new Date().toISOString().slice(0, 10),
-          description: "Institutional investors monitor breakout levels and quarterly cash flow updates.",
-          url: "https://finance.yahoo.com"
-        }
-      ]
-    };
-
-    setActiveStock(preset);
-    setChartRecords(generateMockHistory(symbol, preset.price, selectedPeriod));
-
-    // Reset Chat Welcome for this stock
-    setChatMessages([
-      {
-        role: "assistant",
-        text: `Analysis updated for ${symbol} (${preset.company}). What would you like to know about its technical signals or investment verdict?`
-      }
-    ]);
-
-    // 2. Query Live Backend in Background (if online)
     try {
-      // Fetch live chart records
-      const chartRes = await fetch(`${API_BASE_URL}/api/historical-chart/${symbol}?period=${selectedPeriod.toLowerCase()}`);
+      // 1. Fetch real-time market quote and company metadata
+      const priceRes = await fetch(`${API_BASE_URL}/api/quick-price/${encodeURIComponent(symbol)}`);
+      const priceData = priceRes.ok ? await priceRes.json() : null;
+
+      if (!priceData || priceData.error || !priceData.price) {
+        setError(`No stock or company found for symbol "${symbol}". Please check the spelling or enter a valid publicly traded stock symbol (e.g. AAPL, NVDA, MSFT, TSLA, TATAMOTORS.NS, GOOGL).`);
+        setLoading(false);
+        return;
+      }
+
+      const verifiedTicker = priceData.ticker || symbol;
+      setTicker(verifiedTicker);
+
+      // 2. Fetch live OHLCV candlestick records & calculated technical indicators (SMA20, SMA50, Bollinger Bands)
+      const chartRes = await fetch(`${API_BASE_URL}/api/historical-chart/${encodeURIComponent(verifiedTicker)}?period=${selectedPeriod.toLowerCase()}`);
       if (chartRes.ok) {
         const chartJson = await chartRes.json();
-        if (chartJson.error && !STOCK_PRESETS[symbol]) {
-          setError(`No market data found for ticker symbol "${symbol}". Please check the spelling or try a valid ticker (e.g. AAPL, NVDA, TSLA, OKLO, MSFT, AMZN).`);
-          return;
-        }
         if (chartJson.records && chartJson.records.length > 0) {
           setChartRecords(chartJson.records);
         }
-      } else if (!STOCK_PRESETS[symbol]) {
-        setError(`No market data found for ticker "${symbol}". Please verify the symbol.`);
       }
 
-      // Fetch live agent analysis
+      // 3. Initialize active stock state with live exchange data
+      setActiveStock((prev) => ({
+        ...prev,
+        company: priceData.company || `${verifiedTicker} Equity`,
+        price: priceData.price,
+        open: priceData.open || priceData.price,
+        high: priceData.high || priceData.price,
+        low: priceData.low || priceData.price,
+        volume: priceData.volume || 0,
+        support: Number((priceData.price * 0.94).toFixed(2)),
+        resistance: Number((priceData.price * 1.06).toFixed(2)),
+        timestamp: priceData.timestamp
+      }));
+
+      // Immediate history snapshot for instant availability
+      const historyEntryId = Date.now();
+      saveToLocalHistory({
+        id: historyEntryId,
+        ticker: verifiedTicker,
+        user_query: `Institutional analysis for ${verifiedTicker}`,
+        analysis: `Real-time quote verified at $${priceData.price.toFixed(2)}. Gathering indicators, SEC filings, and multi-agent synthesis...`,
+        current_price: priceData.price,
+        created_at: new Date().toISOString()
+      });
+
+      // Update Chat Welcome
+      setChatMessages([
+        {
+          role: "assistant",
+          text: `Live market session connected for ${verifiedTicker} ($${priceData.price.toFixed(2)}). Ask me anything about its valuation, RSI indicators, or AI investment outlook!`
+        }
+      ]);
+
+      // 4. Run LangGraph multi-agent analysis (Market, Technical, News, RAG, Risk, Synthesis)
       const analysisRes = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: symbol, query: `Detailed breakout analysis for ${symbol}` })
+        body: JSON.stringify({ ticker: verifiedTicker, query: `Detailed technical breakout and risk analysis for ${verifiedTicker}` })
       });
 
       if (analysisRes.ok) {
         const data = await analysisRes.json();
         setActiveStock((prev) => ({
           ...prev,
-          company: data.financial_data?.company || prev.company,
-          price: data.market_data?.price || prev.price,
-          open: data.market_data?.open || prev.open,
-          high: data.market_data?.high || prev.high,
-          low: data.market_data?.low || prev.low,
-          volume: data.market_data?.volume || prev.volume,
+          company: data.financial_data?.company || priceData.company || prev.company,
+          price: data.market_data?.price || priceData.price,
+          open: data.market_data?.open || priceData.open || prev.open,
+          high: data.market_data?.high || priceData.high || prev.high,
+          low: data.market_data?.low || priceData.low || prev.low,
+          volume: data.market_data?.volume || priceData.volume || prev.volume,
           sma20: data.technical_data?.sma20 || prev.sma20,
           sma50: data.technical_data?.sma50 || prev.sma50,
           sma150: data.technical_data?.sma150 || prev.sma150,
@@ -552,20 +332,32 @@ export default function App() {
           previous_date: data.previous_date,
           thread_id: data.thread_id
         }));
+
+        // Update with full completed AI analysis
+        saveToLocalHistory({
+          id: historyEntryId,
+          ticker: verifiedTicker,
+          user_query: data.user_query || `Breakout analysis for ${verifiedTicker}`,
+          analysis: data.final_analysis || `Analysis completed for ${verifiedTicker}`,
+          current_price: data.market_data?.price || priceData.price,
+          created_at: new Date().toISOString()
+        });
       }
 
-      // Fetch history
-      const histRes = await fetch(`${API_BASE_URL}/api/history/${symbol}`);
-      if (histRes.ok) {
-        const histJson = await histRes.json();
-        setHistoryList(histJson.history || []);
-      }
-    } catch (e) {
-      if (!STOCK_PRESETS[symbol]) {
-        setError(`Backend is offline or ticker "${symbol}" could not be loaded. Please run the backend server or select one of the monitored stocks.`);
-      }
+      fetchAndSyncHistory();
+    } catch (err) {
+      setError(`Could not connect to financial backend for "${symbol}". Please ensure the backend server is running.`);
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Load initial stock on mount
+  useEffect(() => {
+    loadStock("AAPL", "6M");
+  }, []);
+
+
 
   // Timeframe change (Instant update)
   const handlePeriodChange = (newPeriod) => {
@@ -589,7 +381,7 @@ export default function App() {
     }
   };
 
-  // Chat message
+  // Chat message - 100% processed by FastAPI & Gemini backend
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if (!chatInput.trim() || chatLoading) return;
@@ -614,35 +406,19 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setChatMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
-        setTimeout(scrollChatToBottom, 50);
       } else {
-        throw new Error("Chat response failed");
-      }
-    } catch (err) {
-      // Smart instant simulated answer if backend is offline
-      setTimeout(() => {
-        let simulatedReply = "";
-        const lower = userMsg.toLowerCase();
-        if (lower.includes("rsi")) {
-          simulatedReply = `RSI (Relative Strength Index) measures price momentum on a scale of 0 to 100. For **${ticker}**, RSI is at **${activeStock.rsi}**. Values below 30 indicate oversold (potential buy dip), while above 70 indicate overbought conditions.`;
-        } else if (lower.includes("bollinger") || lower.includes("bands")) {
-          simulatedReply = `Bollinger Bands plot standard deviations above and below the 20-day SMA. For **${ticker}**, the upper band is $${activeStock.bb_upper?.toFixed(2)} and the lower band is $${activeStock.bb_lower?.toFixed(2)}. Widening bands signal volatility expansion.`;
-        } else if (lower.includes("support") || lower.includes("resistance")) {
-          simulatedReply = `For **${ticker}**, key baseline support is at **$${activeStock.support?.toFixed(2)}** and overhead resistance is at **$${activeStock.resistance?.toFixed(2)}**.`;
-        } else if (lower.includes("buy") || lower.includes("invest")) {
-          simulatedReply = `Current recommendation for **${ticker}**: **${activeStock.verdict}**. ${activeStock.short_term_strategy}`;
-        } else {
-          simulatedReply = `Regarding "${userMsg}": For **${ticker}** (${activeStock.company}), current price is $${activeStock.price.toFixed(2)} holding above support ($${activeStock.support?.toFixed(2)}). Key upcoming catalysts include earnings and sector momentum.`;
-        }
-
+        const errData = await res.json().catch(() => ({}));
+        const errorMsg = errData.detail || "Unable to reach AI Analyst backend. Please verify your backend server connection.";
         setChatMessages((prev) => [
           ...prev,
-          { role: "assistant", text: simulatedReply }
+          { role: "assistant", text: `⚠️ Error: ${errorMsg}` }
         ]);
-        setChatLoading(false);
-        setTimeout(scrollChatToBottom, 50);
-      }, 600);
-      return;
+      }
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: `⚠️ Connection Error: Failed to communicate with the financial AI backend at ${API_BASE_URL}. Please ensure your FastAPI backend is running.` }
+      ]);
     } finally {
       setChatLoading(false);
       setTimeout(scrollChatToBottom, 50);
@@ -887,7 +663,7 @@ ${activeStock.risks_text}
     };
   }, [chartRecords, showBollinger, showSMA50, showLevels]);
 
-  const currentDisplayPrice = activeRecord?.close || activeStock.price;
+  const currentDisplayPrice = Number(activeRecord?.close ?? activeStock.price) || 0;
 
   return (
     <div className="app-layout">
@@ -910,7 +686,10 @@ ${activeStock.risks_text}
             </button>
             <button
               className={`nav-pill-btn ${activeTab === "history" ? "active" : ""}`}
-              onClick={() => setActiveTab("history")}
+              onClick={() => {
+                setActiveTab("history");
+                fetchAndSyncHistory();
+              }}
             >
               <History size={15} />
               <span>History ({historyList.length})</span>
@@ -930,15 +709,75 @@ ${activeStock.risks_text}
       <main className="content-container">
         {/* Search Bar & Quick Ticker Selector */}
         <section className="search-bar-row">
-          <form className="search-form" onSubmit={handleSearch}>
-            <div className="search-input-wrap">
+          <form className="search-form" onSubmit={handleSearch} style={{ position: "relative" }}>
+            <div className="search-input-wrap" ref={searchWrapRef} style={{ position: "relative", width: "100%" }}>
               <Search size={17} className="search-icon" />
               <input
                 type="text"
-                placeholder="Search stock ticker (e.g. OKLO, AAPL, NVDA, TSLA, MSFT, AMZN)..."
+                placeholder="Search stock or company (e.g. TATA, GOOGLE, RELIANCE, AAPL, NVDA, TSLA)..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
+                onFocus={() => setShowSuggestions(true)}
+                onChange={(e) => {
+                  setSearchInput(e.target.value.toUpperCase());
+                  setShowSuggestions(true);
+                }}
               />
+
+              {/* Floating Autocomplete Suggestion Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div
+                  className="autocomplete-dropdown"
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    left: 0,
+                    right: 0,
+                    zIndex: 9999,
+                    background: "#0f172a",
+                    border: "1px solid #334155",
+                    borderRadius: "12px",
+                    boxShadow: "0 16px 36px rgba(0, 0, 0, 0.6)",
+                    overflow: "hidden"
+                  }}
+                >
+                  <div style={{ padding: "8px 14px", fontSize: "11px", color: "#64748b", borderBottom: "1px solid #1e293b", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Matching Global Companies
+                  </div>
+                  {suggestions.map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setShowSuggestions(false);
+                        loadStock(item.symbol, period);
+                      }}
+                      style={{
+                        padding: "10px 14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        borderBottom: idx < suggestions.length - 1 ? "1px solid rgba(51, 65, 85, 0.4)" : "none",
+                        transition: "background 0.15s ease"
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "#1e293b"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontWeight: "700", color: "#38bdf8", fontSize: "14px" }}>{item.symbol}</span>
+                          <span style={{ fontSize: "11px", color: "#94a3b8", background: "#1e293b", padding: "1px 6px", borderRadius: "4px" }}>
+                            {item.exchange}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: "12.5px", color: "#cbd5e1" }}>{item.name}</span>
+                      </div>
+                      {item.sector && (
+                        <span style={{ fontSize: "11.5px", color: "#64748b" }}>{item.sector}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <button type="submit" className="btn-search">
               Search
@@ -957,6 +796,76 @@ ${activeStock.risks_text}
             ))}
           </div>
         </section>
+
+        {/* Dynamic Error Banner for Invalid Tickers */}
+        {error && (
+          <div
+            className="error-alert-box"
+            style={{
+              background: "rgba(239, 68, 68, 0.08)",
+              border: "1px solid rgba(239, 68, 68, 0.35)",
+              borderRadius: "12px",
+              padding: "16px 20px",
+              marginBottom: "20px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "14px"
+            }}
+          >
+            <AlertTriangle size={22} color="#ef4444" style={{ marginTop: "2px", flexShrink: 0 }} />
+            <div>
+              <h4 style={{ margin: "0 0 4px 0", color: "#ef4444", fontSize: "15px", fontWeight: "700" }}>
+                Unrecognized or Non-Existent Stock Symbol
+              </h4>
+              <p style={{ margin: 0, color: "#cbd5e1", fontSize: "13.5px", lineHeight: "1.5" }}>
+                {error}
+              </p>
+              <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "12px", color: "#94a3b8" }}>Try popular stocks:</span>
+                {["AAPL", "NVDA", "TSLA", "MSFT", "OKLO", "AMZN"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => loadStock(s, period)}
+                    style={{
+                      background: "rgba(59, 130, 246, 0.15)",
+                      border: "1px solid rgba(59, 130, 246, 0.4)",
+                      color: "#60a5fa",
+                      padding: "3px 10px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Market Verification Loading State */}
+        {loading && (
+          <div
+            style={{
+              padding: "14px 18px",
+              marginBottom: "16px",
+              borderRadius: "10px",
+              background: "rgba(59, 130, 246, 0.08)",
+              border: "1px solid rgba(59, 130, 246, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              color: "#60a5fa",
+              fontSize: "14px"
+            }}
+          >
+            <RefreshCw size={16} className="spin-icon" />
+            <span>Verifying real-time market data & launching multi-agent analysis for <strong>{searchInput}</strong>...</span>
+          </div>
+        )}
 
         {/* ================= DASHBOARD VIEW ================= */}
         {activeTab === "dashboard" && (
@@ -1563,10 +1472,33 @@ ${activeStock.risks_text}
         {activeTab === "history" && (
           <div className="history-view-page">
             <div className="section-heading-row">
-              <h2>Saved Analysis History</h2>
-              <button className="btn-back" onClick={() => setActiveTab("dashboard")}>
-                ← Back to Dashboard
-              </button>
+              <div className="heading-left">
+                <History className="text-blue" size={24} />
+                <h2>Saved Analysis History ({historyList.length})</h2>
+              </div>
+              <div className="header-action-group">
+                <button
+                  className="btn-export-report"
+                  onClick={() => fetchAndSyncHistory()}
+                  title="Refresh latest saved analyses from database"
+                >
+                  <RefreshCw size={14} />
+                  <span>Sync DB</span>
+                </button>
+                {historyList.length > 0 && (
+                  <button
+                    className="btn-export-report"
+                    onClick={clearAllHistory}
+                    title="Clear session history"
+                    style={{ borderColor: "#f43f5e", color: "#f43f5e" }}
+                  >
+                    <span>Clear History</span>
+                  </button>
+                )}
+                <button className="btn-back" onClick={() => setActiveTab("dashboard")}>
+                  ← Back to Dashboard
+                </button>
+              </div>
             </div>
 
             <p className="history-subtitle">
@@ -1579,7 +1511,7 @@ ${activeStock.risks_text}
                   <div key={idx} className="hist-card">
                     <div className="hist-top">
                       <div className="hist-ticker-badge">{item.ticker || ticker}</div>
-                      <span className="hist-date">{item.created_at?.slice(0, 19)}</span>
+                      <span className="hist-date">{item.created_at?.slice(0, 19).replace("T", " ")}</span>
                     </div>
                     {item.current_price && (
                       <div className="hist-price-row">
@@ -1635,7 +1567,7 @@ ${activeStock.risks_text}
                       ✕
                     </button>
                   </div>
-                  <p className="watch-desc">{STOCK_PRESETS[sym]?.company || `${sym} Corp.`}</p>
+                  <p className="watch-desc">{sym === ticker ? activeStock.company : `${sym} Monitored Equity`}</p>
                   <button
                     className="btn-analyze-sym"
                     onClick={() => {
