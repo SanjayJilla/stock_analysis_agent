@@ -7,8 +7,9 @@ from app.config import GOOGLE_API_KEY
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    google_api_key=GOOGLE_API_KEY
+    model="gemini-3.6-flash",
+    google_api_key=GOOGLE_API_KEY,
+    max_output_tokens=600
 )
 
 def risk_node(state):

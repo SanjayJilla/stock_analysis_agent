@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import "./App.css";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 // Safe initial state for dynamic stock analysis
 const INITIAL_STOCK_STATE = {
@@ -80,6 +80,7 @@ export default function App() {
   const [showLevels, setShowLevels] = useState(true);
 
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Live 1-second real-time market clock
@@ -237,8 +238,12 @@ export default function App() {
     setLoading(true);
 
     try {
-      // 1. Fetch real-time market quote and company metadata
-      const priceRes = await fetch(`${API_BASE_URL}/api/quick-price/${encodeURIComponent(symbol)}`);
+      // SOLUTION 1: Fetch real-time market quote and historical chart IN PARALLEL
+      const [priceRes, chartRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/quick-price/${encodeURIComponent(symbol)}`),
+        fetch(`${API_BASE_URL}/api/historical-chart/${encodeURIComponent(symbol)}?period=${selectedPeriod.toLowerCase()}`)
+      ]);
+
       const priceData = priceRes.ok ? await priceRes.json() : null;
 
       if (!priceData || priceData.error || !priceData.price) {
@@ -250,8 +255,6 @@ export default function App() {
       const verifiedTicker = priceData.ticker || symbol;
       setTicker(verifiedTicker);
 
-      // 2. Fetch live OHLCV candlestick records & calculated technical indicators (SMA20, SMA50, Bollinger Bands)
-      const chartRes = await fetch(`${API_BASE_URL}/api/historical-chart/${encodeURIComponent(verifiedTicker)}?period=${selectedPeriod.toLowerCase()}`);
       if (chartRes.ok) {
         const chartJson = await chartRes.json();
         if (chartJson.records && chartJson.records.length > 0) {
@@ -259,7 +262,7 @@ export default function App() {
         }
       }
 
-      // 3. Initialize active stock state with live exchange data
+      // SOLUTION 2: Instant UI Preview - Render price and chart RIGHT NOW
       setActiveStock((prev) => ({
         ...prev,
         company: priceData.company || `${verifiedTicker} Equity`,
@@ -270,7 +273,13 @@ export default function App() {
         volume: priceData.volume || 0,
         support: Number((priceData.price * 0.94).toFixed(2)),
         resistance: Number((priceData.price * 1.06).toFixed(2)),
-        timestamp: priceData.timestamp
+        timestamp: priceData.timestamp,
+        verdict: "ANALYZING LIVE SIGNALS",
+        verdict_desc: `Connecting to live multi-agent pipeline for ${verifiedTicker}...`,
+        short_term_strategy: "Evaluating order book & momentum...",
+        long_term_strategy: "Auditing balance sheet & 10-K filings...",
+        future_outlook: "Synthesizing macro catalysts...",
+        risks_text: `Analyzing risk exposure for ${verifiedTicker}...`
       }));
 
       // Immediate history snapshot for instant availability
@@ -292,63 +301,72 @@ export default function App() {
         }
       ]);
 
-      // 4. Run LangGraph multi-agent analysis (Market, Technical, News, RAG, Risk, Synthesis)
-      const analysisRes = await fetch(`${API_BASE_URL}/api/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: verifiedTicker, query: `Detailed technical breakout and risk analysis for ${verifiedTicker}` })
-      });
+      // Release main loading state - Chart & Price are now immediately interactive!
+      setLoading(false);
 
-      if (analysisRes.ok) {
-        const data = await analysisRes.json();
-        setActiveStock((prev) => ({
-          ...prev,
-          company: data.financial_data?.company || priceData.company || prev.company,
-          price: data.market_data?.price || priceData.price,
-          open: data.market_data?.open || priceData.open || prev.open,
-          high: data.market_data?.high || priceData.high || prev.high,
-          low: data.market_data?.low || priceData.low || prev.low,
-          volume: data.market_data?.volume || priceData.volume || prev.volume,
-          sma20: data.technical_data?.sma20 || prev.sma20,
-          sma50: data.technical_data?.sma50 || prev.sma50,
-          sma150: data.technical_data?.sma150 || prev.sma150,
-          sma200: data.technical_data?.sma200 || prev.sma200,
-          rsi: data.technical_data?.rsi || prev.rsi,
-          bb_upper: data.technical_data?.bb_upper || prev.bb_upper,
-          bb_lower: data.technical_data?.bb_lower || prev.bb_lower,
-          support: data.technical_data?.support || prev.support,
-          resistance: data.technical_data?.resistance || prev.resistance,
-          market_cap: data.financial_data?.market_cap || prev.market_cap,
-          pe_ratio: data.financial_data?.pe_ratio || prev.pe_ratio,
-          forward_pe: data.financial_data?.forward_pe || prev.forward_pe,
-          profit_margin: data.financial_data?.profit_margin || prev.profit_margin,
-          operating_margin: data.financial_data?.operating_margin || prev.operating_margin,
-          free_cash_flow: data.financial_data?.free_cash_flow || prev.free_cash_flow,
-          debt_to_equity: data.financial_data?.debt_to_equity || prev.debt_to_equity,
-          news: data.news_data?.length > 0 ? data.news_data : prev.news,
-          raw_analysis: data.final_analysis,
-          previous_analysis: data.previous_analysis,
-          previous_price: data.previous_price,
-          previous_date: data.previous_date,
-          thread_id: data.thread_id
-        }));
-
-        // Update with full completed AI analysis
-        saveToLocalHistory({
-          id: historyEntryId,
-          ticker: verifiedTicker,
-          user_query: data.user_query || `Breakout analysis for ${verifiedTicker}`,
-          analysis: data.final_analysis || `Analysis completed for ${verifiedTicker}`,
-          current_price: data.market_data?.price || priceData.price,
-          created_at: new Date().toISOString()
+      // SOLUTION 2: Launch AI Multi-Agent analysis in the background
+      setAiLoading(true);
+      try {
+        const analysisRes = await fetch(`${API_BASE_URL}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker: verifiedTicker, query: `Detailed technical breakout and risk analysis for ${verifiedTicker}` })
         });
+
+        if (analysisRes.ok) {
+          const data = await analysisRes.json();
+          setActiveStock((prev) => ({
+            ...prev,
+            company: data.financial_data?.company || priceData.company || prev.company,
+            price: data.market_data?.price || priceData.price,
+            open: data.market_data?.open || priceData.open || prev.open,
+            high: data.market_data?.high || priceData.high || prev.high,
+            low: data.market_data?.low || priceData.low || prev.low,
+            volume: data.market_data?.volume || priceData.volume || prev.volume,
+            sma20: data.technical_data?.sma20 || prev.sma20,
+            sma50: data.technical_data?.sma50 || prev.sma50,
+            sma150: data.technical_data?.sma150 || prev.sma150,
+            sma200: data.technical_data?.sma200 || prev.sma200,
+            rsi: data.technical_data?.rsi || prev.rsi,
+            bb_upper: data.technical_data?.bb_upper || prev.bb_upper,
+            bb_lower: data.technical_data?.bb_lower || prev.bb_lower,
+            support: data.technical_data?.support || prev.support,
+            resistance: data.technical_data?.resistance || prev.resistance,
+            market_cap: data.financial_data?.market_cap || prev.market_cap,
+            pe_ratio: data.financial_data?.pe_ratio || prev.pe_ratio,
+            forward_pe: data.financial_data?.forward_pe || prev.forward_pe,
+            profit_margin: data.financial_data?.profit_margin || prev.profit_margin,
+            operating_margin: data.financial_data?.operating_margin || prev.operating_margin,
+            free_cash_flow: data.financial_data?.free_cash_flow || prev.free_cash_flow,
+            debt_to_equity: data.financial_data?.debt_to_equity || prev.debt_to_equity,
+            news: data.news_data?.length > 0 ? data.news_data : prev.news,
+            raw_analysis: data.final_analysis,
+            previous_analysis: data.previous_analysis,
+            previous_price: data.previous_price,
+            previous_date: data.previous_date,
+            thread_id: data.thread_id
+          }));
+
+          saveToLocalHistory({
+            id: historyEntryId,
+            ticker: verifiedTicker,
+            user_query: data.user_query || `Breakout analysis for ${verifiedTicker}`,
+            analysis: data.final_analysis || `Analysis completed for ${verifiedTicker}`,
+            current_price: data.market_data?.price || priceData.price,
+            created_at: new Date().toISOString()
+          });
+          fetchAndSyncHistory();
+        }
+      } catch (aiErr) {
+        console.warn("Background AI analysis error:", aiErr);
+      } finally {
+        setAiLoading(false);
       }
 
-      fetchAndSyncHistory();
     } catch (err) {
       setError(`Could not connect to financial backend for "${symbol}". Please ensure the backend server is running.`);
-    } finally {
       setLoading(false);
+      setAiLoading(false);
     }
   };
 
@@ -850,7 +868,7 @@ ${activeStock.risks_text}
         {loading && (
           <div
             style={{
-              padding: "14px 18px",
+              padding: "12px 18px",
               marginBottom: "16px",
               borderRadius: "10px",
               background: "rgba(59, 130, 246, 0.08)",
@@ -863,7 +881,28 @@ ${activeStock.risks_text}
             }}
           >
             <RefreshCw size={16} className="spin-icon" />
-            <span>Verifying real-time market data & launching multi-agent analysis for <strong>{searchInput}</strong>...</span>
+            <span>Connecting to live exchange for <strong>{searchInput}</strong>...</span>
+          </div>
+        )}
+
+        {/* AI Background Multi-Agent Analysis Indicator */}
+        {aiLoading && !loading && (
+          <div
+            style={{
+              padding: "10px 16px",
+              marginBottom: "16px",
+              borderRadius: "10px",
+              background: "rgba(168, 85, 247, 0.08)",
+              border: "1px solid rgba(168, 85, 247, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              color: "#c084fc",
+              fontSize: "13px"
+            }}
+          >
+            <Sparkles size={15} className="spin-icon" />
+            <span>AI Multi-Agent synthesizing technical signals, balance sheet ratios & SEC filings for <strong>{ticker}</strong> in background...</span>
           </div>
         )}
 

@@ -178,7 +178,11 @@ def chat_with_agent(request: ChatRequest):
         pass
 
     try:
-        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=GOOGLE_API_KEY)
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-3.6-flash",
+            google_api_key=GOOGLE_API_KEY,
+            max_output_tokens=600
+        )
         prompt = f"""
 You are an expert Wall Street financial analyst and interactive assistant in the Stock Analyzer terminal.
 Active Monitored Stock: {ticker}

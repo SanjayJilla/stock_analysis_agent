@@ -32,3 +32,10 @@ frontend/.vite/
 *.sqlite3
 *.db
 
+# Test & Benchmark Scripts
+benchmark.py
+backend/benchmark.py
+test_final.py
+backend/test_final.py
+agent_output.txt
+backend/agent_output.txt

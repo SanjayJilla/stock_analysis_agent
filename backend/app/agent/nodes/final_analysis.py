@@ -4,8 +4,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.utils.response import extract_text
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    google_api_key=GOOGLE_API_KEY
+    model="gemini-3.6-flash",
+    google_api_key=GOOGLE_API_KEY,
+    max_output_tokens=800
 )
 
 

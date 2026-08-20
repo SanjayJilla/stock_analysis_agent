@@ -7,7 +7,7 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_connection():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(DATABASE_URL, connect_timeout=2)
 
 
 def create_table():
