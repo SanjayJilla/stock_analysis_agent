@@ -5,7 +5,6 @@ The system orchestrates an autonomous multi-agent workflow that aggregates live 
 
 Prerequisites
 - Python 3.10+
-- Node.js 18+
 - PostgreSQL instance or Docker
 
 1. Backend Setup
