@@ -1,3 +1,9 @@
+/* ─── SSE Streaming UI Animations ─── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
 /* App Layout */
 .app-layout {
   min-height: 100vh;
@@ -528,6 +534,18 @@
   background: #fdf4ff;
   color: #9333ea;
   border: 1px solid #f5d0fe;
+}
+
+.chip-badge.trend-down {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.chip-badge.trend-neutral {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
 }
 
 .chip-badge.momentum {

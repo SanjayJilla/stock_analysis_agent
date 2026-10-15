@@ -83,6 +83,80 @@ def resolve_ticker(query: str) -> str:
     return clean_q
 
 
+CURRENCY_SYMBOLS = {
+    "INR": "₹",
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "JPY": "¥",
+    "CAD": "CA$",
+    "AUD": "A$",
+    "CNY": "¥",
+    "HKD": "HK$",
+    "SGD": "S$",
+    "CHF": "CHF",
+    "KRW": "₩",
+    "BRL": "R$",
+    "ZAR": "R",
+    "SEK": "kr",
+    "NOK": "kr",
+    "DKK": "kr",
+    "RUB": "₽",
+    "TWD": "NT$",
+    "NZD": "NZ$",
+}
+
+
+def detect_currency(ticker: str, stock_obj: yf.Ticker = None):
+    """
+    Detects the currency code (e.g. 'INR') and currency symbol (e.g. '₹')
+    for a given ticker symbol.
+    """
+    currency_code = None
+    clean = (ticker or "").strip().upper()
+
+    # 1. Try fast_info or info from yfinance if stock object provided
+    if stock_obj is not None:
+        try:
+            currency_code = getattr(stock_obj.fast_info, "currency", None)
+        except Exception:
+            pass
+        if not currency_code:
+            try:
+                currency_code = stock_obj.info.get("currency") or stock_obj.info.get("financialCurrency")
+            except Exception:
+                pass
+
+    # 2. Suffix-based exchange mapping fallback
+    if not currency_code:
+        if clean.endswith(".NS") or clean.endswith(".BO"):
+            currency_code = "INR"
+        elif clean.endswith(".L"):
+            currency_code = "GBP"
+        elif any(clean.endswith(ext) for ext in [".DE", ".PA", ".AS", ".MI", ".MC", ".BR", ".VI", ".HE", ".IR"]):
+            currency_code = "EUR"
+        elif clean.endswith(".TO") or clean.endswith(".V"):
+            currency_code = "CAD"
+        elif clean.endswith(".AX"):
+            currency_code = "AUD"
+        elif clean.endswith(".T"):
+            currency_code = "JPY"
+        elif clean.endswith(".HK"):
+            currency_code = "HKD"
+        elif clean.endswith(".SS") or clean.endswith(".SZ"):
+            currency_code = "CNY"
+        elif clean.endswith(".KS") or clean.endswith(".KQ"):
+            currency_code = "KRW"
+        elif clean.endswith(".TW") or clean.endswith(".TWO"):
+            currency_code = "TWD"
+        else:
+            currency_code = "USD"
+
+    currency_code = currency_code.upper()
+    currency_symbol = CURRENCY_SYMBOLS.get(currency_code, currency_code)
+    return currency_code, currency_symbol
+
+
 def get_stock_price(ticker: str):
     clean_ticker = ticker.strip().upper()
     stock = yf.Ticker(clean_ticker)
@@ -115,6 +189,18 @@ def get_stock_price(ticker: str):
         pass
 
     now_str = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p ET")
+    currency_code, currency_symbol = detect_currency(clean_ticker, stock)
+
+    market_cap = None
+    try:
+        market_cap = getattr(stock.fast_info, "market_cap", None)
+    except Exception:
+        pass
+    if market_cap is None:
+        try:
+            market_cap = stock.info.get("marketCap")
+        except Exception:
+            pass
 
     return {
         "ticker": clean_ticker,
@@ -124,6 +210,9 @@ def get_stock_price(ticker: str):
         "high": float(round(latest["High"], 2)),
         "low": float(round(latest["Low"], 2)),
         "volume": int(latest["Volume"]),
+        "market_cap": float(market_cap) if market_cap else None,
+        "currency": currency_code,
+        "currency_symbol": currency_symbol,
         "timestamp": now_str
     }
 
@@ -163,6 +252,8 @@ def get_historical_data(ticker: str, period: str = "6mo"):
         company_name = info.get("longName") or info.get("shortName") or company_name
     except Exception:
         pass
+
+    currency_code, currency_symbol = detect_currency(clean_ticker, stock)
 
     # Compute Moving Averages & Bollinger Bands
     history["SMA_20"] = history["Close"].rolling(window=20).mean()
@@ -221,6 +312,8 @@ def get_historical_data(ticker: str, period: str = "6mo"):
     return {
         "ticker": ticker.upper(),
         "period": period,
+        "currency": currency_code,
+        "currency_symbol": currency_symbol,
         "records": records,
         "stats": {
             "date": datetime.now().strftime("%Y-%m-%d"),
@@ -230,6 +323,8 @@ def get_historical_data(ticker: str, period: str = "6mo"):
             "resistance": resistance,
             "volume": latest_row.get("volume", 0),
             "company": company_name,
+            "currency": currency_code,
+            "currency_symbol": currency_symbol,
             "timestamp": now_str
         }
     }

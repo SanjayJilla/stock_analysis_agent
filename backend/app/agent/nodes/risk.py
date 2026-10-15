@@ -13,15 +13,28 @@ llm = ChatGoogleGenerativeAI(
 )
 
 def risk_node(state):
-    # ADDED: Extract historical analysis from previous runs (loaded from PostgreSQL)
+    # Extract historical analysis from previous runs (loaded from PostgreSQL)
     prev_analysis = state.get("previous_analysis", "")
     prev_price = state.get("previous_price")
     prev_date = state.get("previous_date", "")
 
+    market_data = state.get("market_data") or {}
+    currency_symbol = market_data.get("currency_symbol")
+    if not currency_symbol:
+        ticker = state.get("ticker", "").upper()
+        if ticker.endswith(".NS") or ticker.endswith(".BO"):
+            currency_symbol = "₹"
+        elif ticker.endswith(".L"):
+            currency_symbol = "£"
+        elif any(ticker.endswith(e) for e in [".DE", ".PA", ".AS", ".MI"]):
+            currency_symbol = "€"
+        else:
+            currency_symbol = "$"
+
     history_context = ""
     if prev_analysis:
         history_context = f"""
-    --- Previous Analysis on {prev_date} (Historical Price: ${prev_price}) ---
+    --- Previous Analysis on {prev_date} (Historical Price: {currency_symbol}{prev_price}) ---
     {prev_analysis}
     ------------------------------------------------------------------------
     Note: Compare current metrics with the previous analysis above. Identify if any previous risks have materialized, escalated, or resolved.

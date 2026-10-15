@@ -11,15 +11,33 @@ llm = ChatGoogleGenerativeAI(
 
 
 def final_analysis_node(state):
-    # ADDED: Historical analysis from PostgreSQL memory
+    # Historical analysis from PostgreSQL memory
     previous = state.get("previous_analysis", "")
     previous_price = state.get("previous_price")
     previous_date = state.get("previous_date", "")
 
+    market_data = state.get("market_data") or {}
+    currency_symbol = market_data.get("currency_symbol")
+    currency_code = market_data.get("currency")
+    if not currency_symbol:
+        ticker = state.get("ticker", "").upper()
+        if ticker.endswith(".NS") or ticker.endswith(".BO"):
+            currency_symbol = "₹"
+            currency_code = "INR"
+        elif ticker.endswith(".L"):
+            currency_symbol = "£"
+            currency_code = "GBP"
+        elif any(ticker.endswith(e) for e in [".DE", ".PA", ".AS", ".MI"]):
+            currency_symbol = "€"
+            currency_code = "EUR"
+        else:
+            currency_symbol = "$"
+            currency_code = "USD"
+
     history_section = ""
     if previous:
         history_section = f"""
-Previous Analysis from {previous_date} (Price was ${previous_price}):
+Previous Analysis from {previous_date} (Historical Price was {currency_symbol}{previous_price}):
 {previous}
 """
 
@@ -27,6 +45,7 @@ Previous Analysis from {previous_date} (Price was ${previous_price}):
 You are a senior Wall Street equity research analyst. Analyze the following stock.
 User Question: {state["user_query"]}
 Ticker: {state["ticker"]}
+Reporting Currency: {currency_code} (Symbol: {currency_symbol})
 Market Data: {state["market_data"]}
 Financial Data: {state["financial_data"]}
 Technical Data: {state["technical_data"]}
@@ -40,13 +59,14 @@ Provide a structured, institutional analysis report with:
 2. Financial Health & Balance Sheet Multiples
 3. Valuation Assessment
 4. Technical Trends & Breakout Levels
-5. Key Strengths
-6. Downside Risks & Negative Signals
+5. Bull Case (Growth Thesis & Expansion Catalysts)
+6. Bear Case (Downside Risks & Valuation Vulnerabilities)
 7. Historical Thesis Drift & Comparison (Now vs. Before)
 8. Investment Recommendation & Final Strategy
 
-IMPORTANT FORMATTING RULES:
+IMPORTANT FORMATTING & ACCURACY RULES:
 - Write in clean, professional executive English.
+- CURRENCY ACCURACY: Always denominate prices, support/resistance levels, target ranges, and balance sheet metrics in the stock's correct native currency: {currency_symbol} ({currency_code}). Never use $ for Indian (NSE/BSE) or non-US stocks.
 - Do NOT use markdown symbols like hashtags (#, ##, ###), bold asterisks (* or **), or special formatting marks.
 - Use clear paragraph headers and clean bullet numbers (1., 2., 3.).
 - Clearly distinguish facts from interpretation.

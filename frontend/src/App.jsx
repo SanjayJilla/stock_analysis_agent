@@ -28,9 +28,121 @@ import "./App.css";
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
+// Global currency mapping for multi-exchange stocks
+export const CURRENCY_SYMBOLS = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+  CAD: "CA$",
+  AUD: "A$",
+  CNY: "¥",
+  HKD: "HK$",
+  SGD: "S$",
+  CHF: "CHF",
+  KRW: "₩",
+  BRL: "R$",
+  ZAR: "R",
+  SEK: "kr",
+  NOK: "kr",
+  DKK: "kr",
+  RUB: "₽",
+  TWD: "NT$",
+  NZD: "NZ$",
+};
+
+export const detectCurrency = (ticker = "") => {
+  const sym = (ticker || "").toUpperCase().trim();
+  if (sym.endsWith(".NS") || sym.endsWith(".BO")) return { code: "INR", symbol: "₹" };
+  if (sym.endsWith(".L")) return { code: "GBP", symbol: "£" };
+  if (sym.endsWith(".DE") || sym.endsWith(".PA") || sym.endsWith(".AS") || sym.endsWith(".MI") || sym.endsWith(".MC") || sym.endsWith(".BR")) return { code: "EUR", symbol: "€" };
+  if (sym.endsWith(".TO") || sym.endsWith(".V")) return { code: "CAD", symbol: "CA$" };
+  if (sym.endsWith(".AX")) return { code: "AUD", symbol: "A$" };
+  if (sym.endsWith(".T")) return { code: "JPY", symbol: "¥" };
+  if (sym.endsWith(".HK")) return { code: "HKD", symbol: "HK$" };
+  if (sym.endsWith(".SS") || sym.endsWith(".SZ")) return { code: "CNY", symbol: "¥" };
+  return { code: "USD", symbol: "$" };
+};
+
+// Helper to extract or synthesize complete structured sections
+export const synthesizeSectionsFromData = (data, priceData, currSymbol = "$") => {
+  const p = data?.market_data?.price || priceData?.price || 0;
+  const t = data?.technical_data || {};
+  const s = t.support || Number((p * 0.94).toFixed(2));
+  const r = t.resistance || Number((p * 1.06).toFixed(2));
+  const s20 = t.sma20;
+  const s50 = t.sma50;
+  const rsi = t.rsi;
+
+  let verdict = data?.verdict;
+  let verdict_desc = data?.verdict_desc;
+  let short_term_strategy = data?.short_term_strategy;
+  let long_term_strategy = data?.long_term_strategy;
+  let future_outlook = data?.future_outlook;
+  let bull_case = data?.bull_case;
+  let bear_case = data?.bear_case;
+
+  if (!verdict || verdict === "ANALYZING LIVE SIGNALS" || verdict === "EVALUATING LIVE SIGNALS") {
+    if (s20 !== undefined && s50 !== undefined && s20 !== null && s50 !== null) {
+      if (s20 > s50 && (rsi >= 50 && rsi < 70)) verdict = "BULLISH ACCUMULATION";
+      else if (s20 < s50) verdict = "CAUTIOUS / PULLBACK WATCH";
+      else if (rsi <= 30) verdict = "OVERSOLD REBOUND WATCH";
+      else if (rsi >= 70) verdict = "OVERBOUGHT CONSOLIDATION";
+      else verdict = "TECHNICAL CONSOLIDATION";
+    } else if (p >= s) {
+      verdict = "HOLD / CONSOLIDATE";
+    } else {
+      verdict = "SPECULATIVE / HIGH RISK";
+    }
+  }
+
+  if (!verdict_desc || verdict_desc.includes("Connecting to live") || verdict_desc.includes("ANALYZING LIVE")) {
+    verdict_desc = data?.final_analysis
+      ? data.final_analysis.slice(0, 320).replace(/^[0-9.]+\s*/, "").trim()
+      : `Real-time quote active at ${currSymbol}${p.toFixed(2)}. Technical channels defined between Support (${currSymbol}${s.toFixed(2)}) and Resistance (${currSymbol}${r.toFixed(2)}).`;
+  }
+
+  if (!short_term_strategy || short_term_strategy.includes("Evaluating order book")) {
+    short_term_strategy = `Establish risk stops near support floor at ${currSymbol}${s.toFixed(2)}. Look for confirmation towards upper resistance band at ${currSymbol}${r.toFixed(2)} on expanding volume.`;
+  }
+
+  if (!long_term_strategy || long_term_strategy.includes("Auditing balance sheet")) {
+    const s50Str = (s50 !== undefined && s50 !== null) ? `${currSymbol}${s50.toFixed(2)}` : "50-day average";
+    long_term_strategy = `Audit balance sheet cash reserves, operational margins, and debt leverage across fiscal quarters. Build core positions on sustained closes above ${s50Str}.`;
+  }
+
+  if (!future_outlook || future_outlook.includes("Synthesizing macro catalysts")) {
+    future_outlook = `Key catalysts include upcoming quarterly earnings releases, sector capital rotation, and institutional volume follow-through.`;
+  }
+
+  const compName = data?.financial_data?.company || priceData?.company || "The company";
+  const sector = data?.financial_data?.sector || "equity";
+
+  if (!bull_case) {
+    bull_case = `${compName}'s market positioning in ${sector} provides secular expansion upside. Support floor holding firmly at ${currSymbol}${s.toFixed(2)} defines an asymmetric risk-reward entry targeting breakout resistance near ${currSymbol}${r.toFixed(2)}.`;
+  }
+
+  if (!bear_case) {
+    bear_case = `Downside risk for ${compName} centers on sector volatility and multiple compression. A confirmed breakdown below support floor (${currSymbol}${s.toFixed(2)}) exposes downside re-testing risk.`;
+  }
+
+  return {
+    verdict,
+    verdict_desc,
+    short_term_strategy,
+    long_term_strategy,
+    future_outlook,
+    bull_case,
+    bear_case
+  };
+};
+
 // Safe initial state for dynamic stock analysis
 const INITIAL_STOCK_STATE = {
   company: "Apple Inc.",
+  currency: "USD",
+  currency_symbol: "$",
   sector: "Technology",
   industry: "Consumer Electronics",
   price: 305.93,
@@ -58,14 +170,14 @@ const INITIAL_STOCK_STATE = {
   total_revenue: 466822000000,
   free_cash_flow: 107721000000,
   debt_to_equity: 78.45,
-  verdict: "ANALYZING LIVE SIGNALS",
-  verdict_desc: "Connecting to live financial market stream and LangGraph multi-agent pipeline...",
-  bull_case: "",
-  bear_case: "",
-  short_term_strategy: "Connecting to live order book...",
-  long_term_strategy: "Evaluating fundamentals...",
-  future_outlook: "Processing earnings & macro catalysts...",
-  risks_text: "Evaluating live risk metrics...",
+  verdict: "MODERATE BUY / ACCUMULATE",
+  verdict_desc: "Apple demonstrates exceptional free cash flow generation and resilient ecosystem expansion. Technical momentum remains supported above the 50-day moving average corridor.",
+  bull_case: "Installed device ecosystem exceeding 2.2 billion active devices drives recurring, high-margin Services revenue with durable pricing power.",
+  bear_case: "Hardware upgrade cycle deceleration in competitive international markets and premium valuation multiples relative to historical 10-year medians.",
+  short_term_strategy: "Look for consolidation entries near support floor ($290.50). Next breakout target aligns with upper resistance band near $334.00.",
+  long_term_strategy: "Hold core position anchored by Apple Silicon upgrades, expanding high-margin Services revenue, and continuous share repurchase programs.",
+  future_outlook: "Key catalysts include AI integration across the iOS ecosystem, next-generation device cycles, and expanding recurring services gross margins.",
+  risks_text: "1. Valuation Multiples: Elevated P/E (34.96x) requires sustained high-single-digit EPS expansion. 2. Hardware Replacement Cycles: Lengthening smartphone replacement cycles in mature markets.",
   news: []
 };
 
@@ -82,6 +194,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState("");
+  const [aiNotice, setAiNotice] = useState("");
 
   // Live 1-second real-time market clock
   const [liveTime, setLiveTime] = useState(() => new Date());
@@ -97,6 +210,11 @@ export default function App() {
   const [activeStock, setActiveStock] = useState(INITIAL_STOCK_STATE);
   const [chartRecords, setChartRecords] = useState([]);
   const [hoverIndex, setHoverIndex] = useState(null);
+
+  // Dynamic currency symbol & code for active stock
+  const detectedCurrency = detectCurrency(ticker);
+  const currSymbol = activeStock?.currency_symbol || (activeStock?.currency ? (CURRENCY_SYMBOLS[activeStock.currency.toUpperCase()] || activeStock.currency) : detectedCurrency.symbol) || "$";
+  const currCode = activeStock?.currency || detectedCurrency.code || "USD";
   
   // Initialize history from localStorage immediately so history is never lost
   const [historyList, setHistoryList] = useState(() => {
@@ -176,6 +294,15 @@ export default function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchWrapRef = useRef(null);
 
+  // Race-condition guards: each loadStock() gets a unique ID;
+  // any async callback that fires after a newer load started is discarded.
+  const currentLoadIdRef = useRef(0);
+  const aiEventSourceRef = useRef(null);
+
+  // SSE streaming state
+  const [streamingText, setStreamingText] = useState("");
+  const [aiProgress, setAiProgress] = useState(null); // { step, pct, message }
+
   // Debounced global ticker and company name search
   useEffect(() => {
     const trimmed = searchInput.trim();
@@ -232,16 +359,31 @@ export default function App() {
     const symbol = symbolToLoad.trim().toUpperCase();
     if (!symbol) return;
 
+    // Cancel any in-flight AI SSE stream from a previous loadStock call
+    if (aiEventSourceRef.current) {
+      aiEventSourceRef.current.close();
+      aiEventSourceRef.current = null;
+    }
+
+    // Stamp this load so stale async callbacks can self-discard
+    const thisLoadId = ++currentLoadIdRef.current;
+
+    setStreamingText("");
+    setAiProgress(null);
+
     window.scrollTo({ top: 0, behavior: "instant" });
     setSearchInput(symbol);
     setError("");
+    setAiNotice("");
     setLoading(true);
 
     try {
-      // SOLUTION 1: Fetch real-time market quote and historical chart IN PARALLEL
-      const [priceRes, chartRes] = await Promise.all([
+      // SOLUTION 1: Fetch real-time market quote, historical chart, news, AND fundamentals IN PARALLEL
+      const [priceRes, chartRes, newsRes, fundRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/quick-price/${encodeURIComponent(symbol)}`),
-        fetch(`${API_BASE_URL}/api/historical-chart/${encodeURIComponent(symbol)}?period=${selectedPeriod.toLowerCase()}`)
+        fetch(`${API_BASE_URL}/api/historical-chart/${encodeURIComponent(symbol)}?period=${selectedPeriod.toLowerCase()}`),
+        fetch(`${API_BASE_URL}/api/news/${encodeURIComponent(symbol)}`).catch(() => null),
+        fetch(`${API_BASE_URL}/api/fundamentals/${encodeURIComponent(symbol)}`).catch(() => null)
       ]);
 
       const priceData = priceRes.ok ? await priceRes.json() : null;
@@ -255,40 +397,170 @@ export default function App() {
       const verifiedTicker = priceData.ticker || symbol;
       setTicker(verifiedTicker);
 
+      // Extract latest SMA values from chart data so they render immediately (not after AI)
+      let chartSma20 = null;
+      let chartSma50 = null;
+      let chartSma150 = null;
+      let chartSma200 = null;
       if (chartRes.ok) {
         const chartJson = await chartRes.json();
         if (chartJson.records && chartJson.records.length > 0) {
           setChartRecords(chartJson.records);
+          // Use last record's SMA values — these are live computed from yfinance history
+          const lastRecord = chartJson.records[chartJson.records.length - 1];
+          chartSma20 = lastRecord?.sma20 ?? null;
+          chartSma50 = lastRecord?.sma50 ?? null;
         }
       }
 
-      // SOLUTION 2: Instant UI Preview - Render price and chart RIGHT NOW
+      // Parse pre-fetched fundamentals (PE, ROE, margins, etc.)
+      let prefetchedFundamentals = {};
+      if (fundRes && fundRes.ok) {
+        try {
+          const fundJson = await fundRes.json();
+          if (fundJson.data && typeof fundJson.data === "object") {
+            prefetchedFundamentals = fundJson.data;
+            // Override chart SMAs with technical_analysis values if available (more precise)
+            if (prefetchedFundamentals.sma20 != null) chartSma20 = prefetchedFundamentals.sma20;
+            if (prefetchedFundamentals.sma50 != null) chartSma50 = prefetchedFundamentals.sma50;
+            if (prefetchedFundamentals.sma150 != null) chartSma150 = prefetchedFundamentals.sma150;
+            if (prefetchedFundamentals.sma200 != null) chartSma200 = prefetchedFundamentals.sma200;
+          }
+        } catch {}
+      }
+
+      let instantNews = [];
+      if (newsRes && newsRes.ok) {
+        try {
+          const newsJson = await newsRes.json();
+          if (Array.isArray(newsJson.news)) {
+            instantNews = newsJson.news;
+          }
+        } catch {}
+      }
+
+      const detectedCurr = detectCurrency(verifiedTicker);
+      const pCurrCode = priceData.currency || detectedCurr.code;
+      const pCurrSymbol = priceData.currency_symbol || CURRENCY_SYMBOLS[pCurrCode] || detectedCurr.symbol;
+
+      // Helper function to synthesize quantitative fallback if AI pipeline is rate-limited, times out, or fails
+      const applyQuantitativeFallback = (noticeText = "") => {
+        const price = priceData.price || 0;
+        const prefSupport = prefetchedFundamentals.support;
+        const prefResistance = prefetchedFundamentals.resistance;
+        const support = prefSupport ?? Number((price * 0.94).toFixed(2));
+        const resistance = prefResistance ?? Number((price * 1.06).toFixed(2));
+        const parsed = synthesizeSectionsFromData(
+          { technical_data: prefetchedFundamentals, financial_data: prefetchedFundamentals },
+          priceData,
+          pCurrSymbol
+        );
+        setActiveStock((prev) => ({
+          ...prev,
+          // Apply all pre-fetched fundamentals so metrics never show N/A in fallback
+          pe_ratio: prefetchedFundamentals.pe_ratio ?? prev.pe_ratio,
+          forward_pe: prefetchedFundamentals.forward_pe ?? prev.forward_pe,
+          price_to_book: prefetchedFundamentals.price_to_book ?? prev.price_to_book,
+          operating_margin: prefetchedFundamentals.operating_margin ?? prev.operating_margin,
+          profit_margin: prefetchedFundamentals.profit_margin ?? prev.profit_margin,
+          roe: prefetchedFundamentals.roe ?? prev.roe,
+          revenue_growth: prefetchedFundamentals.revenue_growth ?? prev.revenue_growth,
+          debt_to_equity: prefetchedFundamentals.debt_to_equity ?? prev.debt_to_equity,
+          total_revenue: prefetchedFundamentals.total_revenue ?? prev.total_revenue,
+          free_cash_flow: prefetchedFundamentals.free_cash_flow ?? prev.free_cash_flow,
+          market_cap: prefetchedFundamentals.market_cap ?? priceData.market_cap ?? prev.market_cap,
+          sma20: chartSma20 ?? prev.sma20,
+          sma50: chartSma50 ?? prev.sma50,
+          sma150: chartSma150 ?? prev.sma150,
+          sma200: chartSma200 ?? prev.sma200,
+          rsi: prefetchedFundamentals.rsi ?? prev.rsi,
+          bb_upper: prefetchedFundamentals.bb_upper ?? prev.bb_upper,
+          bb_lower: prefetchedFundamentals.bb_lower ?? prev.bb_lower,
+          macd: prefetchedFundamentals.macd ?? prev.macd,
+          macd_signal: prefetchedFundamentals.macd_signal ?? prev.macd_signal,
+          support,
+          resistance,
+          news: instantNews,
+          verdict: parsed.verdict,
+          verdict_desc: parsed.verdict_desc,
+          short_term_strategy: parsed.short_term_strategy,
+          long_term_strategy: parsed.long_term_strategy,
+          future_outlook: parsed.future_outlook,
+          bull_case: parsed.bull_case,
+          bear_case: parsed.bear_case,
+          risks_text: `1. Volatility Risk: Price fluctuations near support floor (${pCurrSymbol}${support.toFixed(2)}). 2. Financial Multiples: Review debt sustainability and equity ratios for distressed stocks. 3. System Note: Quantitative technical engine active.`
+        }));
+        if (noticeText) {
+          setAiNotice(noticeText);
+        }
+      };
+
+      // Use pre-fetched support/resistance from technical analysis if available, otherwise estimate
+      const instantSupport = prefetchedFundamentals.support ?? Number((priceData.price * 0.94).toFixed(2));
+      const instantResistance = prefetchedFundamentals.resistance ?? Number((priceData.price * 1.06).toFixed(2));
+
+      // SOLUTION 2: Instant UI Preview - populate price, chart, SMAs, AND fundamentals RIGHT NOW
       setActiveStock((prev) => ({
         ...prev,
-        company: priceData.company || `${verifiedTicker} Equity`,
+        company: priceData.company || prefetchedFundamentals.company || `${verifiedTicker} Equity`,
+        currency: pCurrCode,
+        currency_symbol: pCurrSymbol,
         price: priceData.price,
         open: priceData.open || priceData.price,
         high: priceData.high || priceData.price,
         low: priceData.low || priceData.price,
         volume: priceData.volume || 0,
-        support: Number((priceData.price * 0.94).toFixed(2)),
-        resistance: Number((priceData.price * 1.06).toFixed(2)),
+        support: instantSupport,
+        resistance: instantResistance,
         timestamp: priceData.timestamp,
-        verdict: "ANALYZING LIVE SIGNALS",
-        verdict_desc: `Connecting to live multi-agent pipeline for ${verifiedTicker}...`,
-        short_term_strategy: "Evaluating order book & momentum...",
-        long_term_strategy: "Auditing balance sheet & 10-K filings...",
-        future_outlook: "Synthesizing macro catalysts...",
-        risks_text: `Analyzing risk exposure for ${verifiedTicker}...`
+        // Immediately populate SMAs from chart/technical data — no waiting for AI
+        sma20: chartSma20 ?? null,
+        sma50: chartSma50 ?? null,
+        sma150: chartSma150 ?? null,
+        sma200: chartSma200 ?? null,
+        rsi: prefetchedFundamentals.rsi ?? null,
+        bb_upper: prefetchedFundamentals.bb_upper ?? null,
+        bb_lower: prefetchedFundamentals.bb_lower ?? null,
+        macd: prefetchedFundamentals.macd ?? null,
+        macd_signal: prefetchedFundamentals.macd_signal ?? null,
+        // Immediately populate fundamental metrics — no waiting for AI
+        news: instantNews,
+        market_cap: prefetchedFundamentals.market_cap ?? priceData.market_cap ?? null,
+        total_revenue: prefetchedFundamentals.total_revenue ?? null,
+        free_cash_flow: prefetchedFundamentals.free_cash_flow ?? null,
+        pe_ratio: prefetchedFundamentals.pe_ratio ?? null,
+        forward_pe: prefetchedFundamentals.forward_pe ?? null,
+        price_to_book: prefetchedFundamentals.price_to_book ?? null,
+        operating_margin: prefetchedFundamentals.operating_margin ?? null,
+        profit_margin: prefetchedFundamentals.profit_margin ?? null,
+        roe: prefetchedFundamentals.roe ?? null,
+        revenue_growth: prefetchedFundamentals.revenue_growth ?? null,
+        debt_to_equity: prefetchedFundamentals.debt_to_equity ?? null,
+        verdict: "EVALUATING LIVE SIGNALS",
+        verdict_desc: `Real-time quote active at ${pCurrSymbol}${priceData.price.toFixed(2)}. Processing live multi-agent indicators for ${verifiedTicker}...`,
+        short_term_strategy: `Support floor at ${pCurrSymbol}${instantSupport.toFixed(2)}. Target resistance ceiling at ${pCurrSymbol}${instantResistance.toFixed(2)}.`,
+        long_term_strategy: `Evaluating cash flow generation, debt covenants, and quarterly earnings disclosures...`,
+        future_outlook: `Monitoring upcoming earnings announcements, sector rotation, and macro catalysts...`,
+        bull_case: `Support holding at ${pCurrSymbol}${instantSupport.toFixed(2)} defines an asymmetric risk-reward entry towards ${pCurrSymbol}${instantResistance.toFixed(2)}.`,
+        bear_case: `Sustained break below support (${pCurrSymbol}${instantSupport.toFixed(2)}) indicates risk of downside re-testing.`,
+        risks_text: `Analyzing risk exposure and balance sheet solvency for ${verifiedTicker}...`
       }));
+
+      // Stale-load guard: if the user already switched to another stock, abort
+      if (currentLoadIdRef.current !== thisLoadId) {
+        setLoading(false);
+        return;
+      }
 
       // Immediate history snapshot for instant availability
       const historyEntryId = Date.now();
       saveToLocalHistory({
         id: historyEntryId,
         ticker: verifiedTicker,
+        currency: pCurrCode,
+        currency_symbol: pCurrSymbol,
         user_query: `Institutional analysis for ${verifiedTicker}`,
-        analysis: `Real-time quote verified at $${priceData.price.toFixed(2)}. Gathering indicators, SEC filings, and multi-agent synthesis...`,
+        analysis: `Real-time quote verified at ${pCurrSymbol}${priceData.price.toFixed(2)}. Gathering indicators, SEC filings, and multi-agent synthesis...`,
         current_price: priceData.price,
         created_at: new Date().toISOString()
       });
@@ -297,71 +569,135 @@ export default function App() {
       setChatMessages([
         {
           role: "assistant",
-          text: `Live market session connected for ${verifiedTicker} ($${priceData.price.toFixed(2)}). Ask me anything about its valuation, RSI indicators, or AI investment outlook!`
+          text: `Live market session connected for ${verifiedTicker} (${pCurrSymbol}${priceData.price.toFixed(2)}). Ask me anything about its valuation, RSI indicators, or AI investment outlook!`
         }
       ]);
 
       // Release main loading state - Chart & Price are now immediately interactive!
       setLoading(false);
 
-      // SOLUTION 2: Launch AI Multi-Agent analysis in the background
+      // ── SSE STREAMING AI PIPELINE ─────────────────────────────────────────────
+      // Uses Server-Sent Events so each phase (technical, news, LLM) streams to
+      // the UI as it completes. No more 25-second timeouts.
       setAiLoading(true);
-      try {
-        const analysisRes = await fetch(`${API_BASE_URL}/api/analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ticker: verifiedTicker, query: `Detailed technical breakout and risk analysis for ${verifiedTicker}` })
-        });
+      setAiProgress({ step: "market", pct: 5, message: `Launching multi-agent pipeline for ${verifiedTicker}...` });
 
-        if (analysisRes.ok) {
-          const data = await analysisRes.json();
-          setActiveStock((prev) => ({
-            ...prev,
-            company: data.financial_data?.company || priceData.company || prev.company,
-            price: data.market_data?.price || priceData.price,
-            open: data.market_data?.open || priceData.open || prev.open,
-            high: data.market_data?.high || priceData.high || prev.high,
-            low: data.market_data?.low || priceData.low || prev.low,
-            volume: data.market_data?.volume || priceData.volume || prev.volume,
-            sma20: data.technical_data?.sma20 || prev.sma20,
-            sma50: data.technical_data?.sma50 || prev.sma50,
-            sma150: data.technical_data?.sma150 || prev.sma150,
-            sma200: data.technical_data?.sma200 || prev.sma200,
-            rsi: data.technical_data?.rsi || prev.rsi,
-            bb_upper: data.technical_data?.bb_upper || prev.bb_upper,
-            bb_lower: data.technical_data?.bb_lower || prev.bb_lower,
-            support: data.technical_data?.support || prev.support,
-            resistance: data.technical_data?.resistance || prev.resistance,
-            market_cap: data.financial_data?.market_cap || prev.market_cap,
-            pe_ratio: data.financial_data?.pe_ratio || prev.pe_ratio,
-            forward_pe: data.financial_data?.forward_pe || prev.forward_pe,
-            profit_margin: data.financial_data?.profit_margin || prev.profit_margin,
-            operating_margin: data.financial_data?.operating_margin || prev.operating_margin,
-            free_cash_flow: data.financial_data?.free_cash_flow || prev.free_cash_flow,
-            debt_to_equity: data.financial_data?.debt_to_equity || prev.debt_to_equity,
-            news: data.news_data?.length > 0 ? data.news_data : prev.news,
-            raw_analysis: data.final_analysis,
-            previous_analysis: data.previous_analysis,
-            previous_price: data.previous_price,
-            previous_date: data.previous_date,
-            thread_id: data.thread_id
-          }));
+      const evtSource = new EventSource(`${API_BASE_URL}/api/analyze/stream/${encodeURIComponent(verifiedTicker)}`);
+      aiEventSourceRef.current = evtSource;
 
-          saveToLocalHistory({
-            id: historyEntryId,
-            ticker: verifiedTicker,
-            user_query: data.user_query || `Breakout analysis for ${verifiedTicker}`,
-            analysis: data.final_analysis || `Analysis completed for ${verifiedTicker}`,
-            current_price: data.market_data?.price || priceData.price,
-            created_at: new Date().toISOString()
-          });
-          fetchAndSyncHistory();
+      evtSource.onmessage = (event) => {
+        // Stale-load guard: user switched stocks while stream was open
+        if (currentLoadIdRef.current !== thisLoadId) {
+          evtSource.close();
+          aiEventSourceRef.current = null;
+          setAiLoading(false);
+          setAiProgress(null);
+          return;
         }
-      } catch (aiErr) {
-        console.warn("Background AI analysis error:", aiErr);
-      } finally {
+
+        if (event.data === "[DONE]") {
+          evtSource.close();
+          aiEventSourceRef.current = null;
+          setAiLoading(false);
+          setAiProgress(null);
+          setStreamingText("");
+          return;
+        }
+
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === "progress") {
+            setAiProgress({ step: msg.step, pct: msg.pct, message: msg.message });
+
+          } else if (msg.type === "technical_data" && msg.data) {
+            const td = msg.data;
+            setActiveStock((prev) => ({
+              ...prev,
+              sma20:       td.sma20       ?? chartSma20,
+              sma50:       td.sma50       ?? chartSma50,
+              sma150:      td.sma150      ?? chartSma150,
+              sma200:      td.sma200      ?? chartSma200,
+              rsi:         td.rsi         ?? prefetchedFundamentals.rsi ?? null,
+              bb_upper:    td.bb_upper    ?? prefetchedFundamentals.bb_upper ?? null,
+              bb_lower:    td.bb_lower    ?? prefetchedFundamentals.bb_lower ?? null,
+              support:     td.support     ?? prefetchedFundamentals.support ?? null,
+              resistance:  td.resistance  ?? prefetchedFundamentals.resistance ?? null,
+              macd:        td.macd        ?? null,
+              macd_signal: td.macd_signal ?? null,
+            }));
+
+          } else if (msg.type === "financial_data" && msg.data) {
+            const fd = msg.data;
+            setActiveStock((prev) => ({
+              ...prev,
+              pe_ratio:         fd.pe_ratio         ?? prev.pe_ratio,
+              forward_pe:       fd.forward_pe        ?? prev.forward_pe,
+              price_to_book:    fd.price_to_book     ?? prev.price_to_book,
+              operating_margin: fd.operating_margin  ?? prev.operating_margin,
+              profit_margin:    fd.profit_margin     ?? prev.profit_margin,
+              roe:              fd.roe               ?? prev.roe,
+              revenue_growth:   fd.revenue_growth    ?? prev.revenue_growth,
+              debt_to_equity:   fd.debt_to_equity    ?? prev.debt_to_equity,
+              total_revenue:    fd.total_revenue     ?? prev.total_revenue,
+              free_cash_flow:   fd.free_cash_flow    ?? prev.free_cash_flow,
+              market_cap:       fd.market_cap        ?? prev.market_cap,
+              company:          fd.company           || prev.company,
+            }));
+
+          } else if (msg.type === "news_data" && Array.isArray(msg.data) && msg.data.length > 0) {
+            setActiveStock((prev) => ({ ...prev, news: msg.data }));
+
+          } else if (msg.type === "text_chunk" && msg.text) {
+            setStreamingText((prev) => prev + msg.text);
+
+          } else if (msg.type === "sections" && msg.data) {
+            const s = msg.data;
+            setActiveStock((prev) => ({
+              ...prev,
+              verdict:             s.verdict            || prev.verdict,
+              verdict_desc:        s.verdict_desc       || prev.verdict_desc,
+              short_term_strategy: s.short_term_strategy|| prev.short_term_strategy,
+              long_term_strategy:  s.long_term_strategy || prev.long_term_strategy,
+              future_outlook:      s.future_outlook     || prev.future_outlook,
+              bull_case:           s.bull_case          || prev.bull_case,
+              bear_case:           s.bear_case          || prev.bear_case,
+            }));
+
+          } else if (msg.type === "complete") {
+            setActiveStock((prev) => ({ ...prev, thread_id: msg.thread_id }));
+            saveToLocalHistory({
+              id: historyEntryId,
+              ticker: verifiedTicker,
+              currency: pCurrCode,
+              currency_symbol: pCurrSymbol,
+              user_query: `Institutional analysis for ${verifiedTicker}`,
+              analysis: msg.final_analysis || `Analysis completed for ${verifiedTicker}`,
+              current_price: priceData.price,
+              created_at: new Date().toISOString()
+            });
+            fetchAndSyncHistory();
+
+          } else if (msg.type === "error") {
+            setAiNotice(`AI pipeline: ${msg.message}. Quantitative engine active.`);
+            applyQuantitativeFallback("");
+            evtSource.close();
+            aiEventSourceRef.current = null;
+            setAiLoading(false);
+            setAiProgress(null);
+          }
+        } catch {}
+      };
+
+      evtSource.onerror = () => {
+        if (currentLoadIdRef.current !== thisLoadId) return;
+        evtSource.close();
+        aiEventSourceRef.current = null;
         setAiLoading(false);
-      }
+        setAiProgress(null);
+        setStreamingText("");
+        setAiNotice("AI stream closed. Quantitative technical analysis is active.");
+      };
 
     } catch (err) {
       setError(`Could not connect to financial backend for "${symbol}". Please ensure the backend server is running.`);
@@ -380,9 +716,6 @@ export default function App() {
   // Timeframe change (Instant update)
   const handlePeriodChange = (newPeriod) => {
     setPeriod(newPeriod);
-    setChartRecords(generateMockHistory(ticker, activeStock.price, newPeriod));
-    
-    // Also try live backend
     fetch(`${API_BASE_URL}/api/historical-chart/${ticker}?period=${newPeriod.toLowerCase()}`)
       .then((r) => r.json())
       .then((d) => {
@@ -461,18 +794,85 @@ export default function App() {
 
   const formatVol = (val) => {
     if (!val) return "0";
-    if (val >= 1e9) return `${(val / 1e9).toFixed(1)}B`;
-    if (val >= 1e6) return `${(val / 1e6).toFixed(1)}M`;
-    if (val >= 1e3) return `${(val / 1e3).toFixed(1)}K`;
-    return val.toString();
+    const v = Number(val);
+    if (currCode === "INR") {
+      if (v >= 1e7) return `${(v / 1e7).toLocaleString("en-IN", { maximumFractionDigits: 2 })} Cr`;
+      if (v >= 1e5) return `${(v / 1e5).toLocaleString("en-IN", { maximumFractionDigits: 2 })} L`;
+    }
+    if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+    return v.toString();
   };
 
-  const formatNumber = (num, prefix = "", suffix = "") => {
-    if (num === null || num === undefined || isNaN(num)) return "N/A";
-    if (Math.abs(num) >= 1e12) return `${prefix}${(num / 1e12).toFixed(2)}T${suffix}`;
-    if (Math.abs(num) >= 1e9) return `${prefix}${(num / 1e9).toFixed(2)}B${suffix}`;
-    if (Math.abs(num) >= 1e6) return `${prefix}${(num / 1e6).toFixed(2)}M${suffix}`;
-    return `${prefix}${Number(num).toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
+  const formatNumber = (num, prefix = "", suffix = "", currencyCode = currCode) => {
+    if (num === null || num === undefined || isNaN(num) || num === "") return "N/A";
+    const val = Number(num);
+    const absVal = Math.abs(val);
+
+    // If INR currency, provide standard Indian numbering (Crore / Lakh)
+    if (currencyCode === "INR") {
+      if (absVal >= 1e7) {
+        return `${prefix}${(val / 1e7).toLocaleString("en-IN", { maximumFractionDigits: 2 })} Cr${suffix}`;
+      }
+      if (absVal >= 1e5) {
+        return `${prefix}${(val / 1e5).toLocaleString("en-IN", { maximumFractionDigits: 2 })} L${suffix}`;
+      }
+      return `${prefix}${val.toLocaleString("en-IN", { maximumFractionDigits: 2 })}${suffix}`;
+    }
+
+    // Standard International Scale for US and global equities (Mega, Mid, Small, Micro, Nano caps)
+    if (absVal >= 1e12) return `${prefix}${(val / 1e12).toFixed(2)}T${suffix}`;
+    if (absVal >= 1e9) return `${prefix}${(val / 1e9).toFixed(2)}B${suffix}`;
+    if (absVal >= 1e6) return `${prefix}${(val / 1e6).toFixed(2)}M${suffix}`;
+    if (absVal >= 1e3) return `${prefix}${(val / 1e3).toFixed(2)}K${suffix}`;
+    return `${prefix}${val.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
+  };
+
+  // Bounds-checked formatting for Trailing and Forward P/E (handles unprofitable turnaround stocks)
+  const formatPE = (pe, isForward = false) => {
+    if (pe === null || pe === undefined || isNaN(pe) || pe === "") {
+      return isForward ? "N/A" : "N/A (Unprofitable)";
+    }
+    const val = Number(pe);
+    if (!isFinite(val)) return "N/A";
+    if (val <= 0) return "N/A (Net Loss)";
+    if (val > 1000) return "> 1,000x (Extreme Multiple)";
+    return `${val.toFixed(2)}x`;
+  };
+
+  // Bounds-checked formatting for Price-to-Book (handles negative equity / turnaround distress)
+  const formatPB = (pb) => {
+    if (pb === null || pb === undefined || isNaN(pb) || pb === "") return "N/A";
+    const val = Number(pb);
+    if (!isFinite(val)) return "N/A";
+    if (val <= 0) return "Negative Equity (Deficit)";
+    if (val > 250) return "> 250x (Asset-Light)";
+    return `${val.toFixed(2)}x`;
+  };
+
+  // Bounds-checked formatting for Debt-to-Equity (handles negative net worth and leverage extremes)
+  const formatDebtEquity = (dte) => {
+    if (dte === null || dte === undefined || isNaN(dte) || dte === "") return "N/A";
+    const val = Number(dte);
+    if (!isFinite(val)) return "N/A";
+    if (val < 0) return "Negative Equity (Distressed)";
+    if (val > 2000) return "> 2,000% (High Leverage)";
+    return `${val.toFixed(1)}%`;
+  };
+
+  // Bounds-checked formatting for Margins, ROE, and Growth percentages
+  const formatPercent = (val, isGrowth = false) => {
+    if (val === null || val === undefined || isNaN(val) || val === "") return "N/A";
+    const num = Number(val);
+    if (!isFinite(num)) return "N/A";
+    if (num < -5.0) return "< -500% (High Deficit)";
+    if (num > 10.0) return "> +1,000% (Distorted Base)";
+    const pct = (num * 100).toFixed(1);
+    if (isGrowth) {
+      return num > 0 ? `+${pct}%` : `${pct}%`;
+    }
+    return `${pct}%`;
   };
 
   // Comprehensive plain text converter: Strips all AI markdown artifacts (#, ##, **, *, _, `, ---, ~, >) into clean, natural human text
@@ -512,7 +912,7 @@ export default function App() {
     
     const content = `# INSTITUTIONAL EQUITY RESEARCH REPORT: ${activeStock.company} (${ticker})
 **Report Generated:** ${reportDate} | **Market Status:** Verified Live
-**Current Stock Price:** $${currentDisplayPrice.toFixed(2)} | **Verdict:** ${activeStock.verdict}
+**Current Stock Price:** ${currSymbol}${currentDisplayPrice.toFixed(2)} (${currCode}) | **Verdict:** ${activeStock.verdict}
 
 ---
 
@@ -535,20 +935,21 @@ ${activeStock.bear_case || "Valuation multiple expansion leaves limited room for
 ---
 
 ## 3. Quantitative & Technical Overlays
-* **Support (Floor Level):** $${activeStock.support ? activeStock.support.toFixed(2) : "N/A"}
-* **Resistance (Ceiling Level):** $${activeStock.resistance ? activeStock.resistance.toFixed(2) : "N/A"}
-* **SMA 20:** $${activeStock.sma20 ? activeStock.sma20.toFixed(2) : "N/A"} | **SMA 50:** $${activeStock.sma50 ? activeStock.sma50.toFixed(2) : "N/A"} | **SMA 200:** $${activeStock.sma200 ? activeStock.sma200.toFixed(2) : "N/A"}
+* **Support (Floor Level):** ${currSymbol}${activeStock.support ? activeStock.support.toFixed(2) : "N/A"}
+* **Resistance (Ceiling Level):** ${currSymbol}${activeStock.resistance ? activeStock.resistance.toFixed(2) : "N/A"}
+* **SMA 20:** ${currSymbol}${activeStock.sma20 ? activeStock.sma20.toFixed(2) : "N/A"} | **SMA 50:** ${currSymbol}${activeStock.sma50 ? activeStock.sma50.toFixed(2) : "N/A"} | **SMA 200:** ${currSymbol}${activeStock.sma200 ? activeStock.sma200.toFixed(2) : "N/A"}
 * **14-Day RSI:** ${activeStock.rsi ? activeStock.rsi.toFixed(1) : "N/A"}
-* **Bollinger Bands:** Upper $${activeStock.bb_upper ? activeStock.bb_upper.toFixed(2) : "N/A"} | Lower $${activeStock.bb_lower ? activeStock.bb_lower.toFixed(2) : "N/A"}
+* **Bollinger Bands:** Upper ${currSymbol}${activeStock.bb_upper ? activeStock.bb_upper.toFixed(2) : "N/A"} | Lower ${currSymbol}${activeStock.bb_lower ? activeStock.bb_lower.toFixed(2) : "N/A"}
 
 ---
 
 ## 4. Fundamental Health & Valuation Multiples
-* **Market Capitalization:** $${activeStock.market_cap ? (activeStock.market_cap / 1e9).toFixed(2) + "B" : "N/A"}
-* **Trailing P/E Ratio:** ${activeStock.pe_ratio ? activeStock.pe_ratio.toFixed(2) : "N/A"} | **Forward P/E:** ${activeStock.forward_pe ? activeStock.forward_pe.toFixed(2) : "N/A"}
-* **Operating Margin:** ${activeStock.operating_margin ? (activeStock.operating_margin * 100).toFixed(1) + "%" : "N/A"} | **Profit Margin:** ${activeStock.profit_margin ? (activeStock.profit_margin * 100).toFixed(1) + "%" : "N/A"}
-* **Free Cash Flow:** $${activeStock.free_cash_flow ? (activeStock.free_cash_flow / 1e9).toFixed(2) + "B" : "N/A"}
-* **Debt to Equity:** ${activeStock.debt_to_equity ? activeStock.debt_to_equity + "%" : "N/A"}
+* **Market Capitalization:** ${formatNumber(activeStock.market_cap, currSymbol)}
+* **Trailing P/E Ratio:** ${formatPE(activeStock.pe_ratio)} | **Forward P/E:** ${formatPE(activeStock.forward_pe, true)}
+* **Price to Book:** ${formatPB(activeStock.price_to_book)}
+* **Operating Margin:** ${formatPercent(activeStock.operating_margin)} | **Profit Margin:** ${formatPercent(activeStock.profit_margin)}
+* **Free Cash Flow:** ${formatNumber(activeStock.free_cash_flow, currSymbol)}
+* **Debt to Equity:** ${formatDebtEquity(activeStock.debt_to_equity)}
 
 ---
 
@@ -885,24 +1286,138 @@ ${activeStock.risks_text}
           </div>
         )}
 
-        {/* AI Background Multi-Agent Analysis Indicator */}
+        {/* ─── SSE Multi-Phase Progress & Streaming Text Panel ─── */}
         {aiLoading && !loading && (
+          <div style={{
+            marginBottom: "16px",
+            borderRadius: "12px",
+            background: "rgba(109, 40, 217, 0.07)",
+            border: "1px solid rgba(139, 92, 246, 0.3)",
+            overflow: "hidden"
+          }}>
+            {/* Header row */}
+            <div style={{
+              padding: "10px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "9px", color: "#a78bfa", fontSize: "13px" }}>
+                <Sparkles size={15} className="spin-icon" />
+                <span>{aiProgress?.message || `Launching AI pipeline for ${ticker}...`}</span>
+              </div>
+              <span style={{ fontSize: "12px", color: "#7c3aed", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>
+                {aiProgress?.pct ?? 5}%
+              </span>
+            </div>
+
+            {/* Animated progress bar */}
+            <div style={{ height: "3px", background: "rgba(109, 40, 217, 0.15)", position: "relative" }}>
+              <div style={{
+                position: "absolute", left: 0, top: 0, bottom: 0,
+                width: `${aiProgress?.pct ?? 5}%`,
+                background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
+                borderRadius: "0 2px 2px 0",
+                transition: "width 0.6s ease"
+              }} />
+            </div>
+
+            {/* Phase breadcrumb */}
+            <div style={{ padding: "7px 16px 8px", display: "flex", gap: "6px", alignItems: "center" }}>
+              {[
+                { id: "market",    label: "Market" },
+                { id: "technical", label: "Technicals" },
+                { id: "news",      label: "News" },
+                { id: "ai",        label: "AI Synthesis" },
+                { id: "sections",  label: "Structuring" }
+              ].map((ph, i, arr) => {
+                const pct = aiProgress?.pct ?? 0;
+                const thresholds = [8, 28, 48, 60, 92];
+                const done = pct > thresholds[i];
+                const active = aiProgress?.step === ph.id;
+                return (
+                  <React.Fragment key={ph.id}>
+                    <span style={{
+                      fontSize: "11px", fontWeight: active ? "700" : "500",
+                      color: done ? "#34d399" : active ? "#a78bfa" : "#475569",
+                      transition: "color 0.3s"
+                    }}>
+                      {done ? "✓ " : ""}{ph.label}
+                    </span>
+                    {i < arr.length - 1 && (
+                      <span style={{ color: "#334155", fontSize: "10px" }}>›</span>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* Live streaming text (typewriter output) */}
+            {streamingText && (
+              <div style={{
+                margin: "0 12px 12px",
+                padding: "12px 14px",
+                background: "rgba(15, 23, 42, 0.6)",
+                borderRadius: "8px",
+                border: "1px solid rgba(139, 92, 246, 0.15)",
+                fontFamily: "monospace",
+                fontSize: "12.5px",
+                color: "#cbd5e1",
+                lineHeight: "1.65",
+                maxHeight: "180px",
+                overflowY: "auto",
+                whiteSpace: "pre-wrap"
+              }}>
+                {streamingText}
+                <span style={{
+                  display: "inline-block",
+                  width: "2px", height: "13px",
+                  background: "#a78bfa",
+                  marginLeft: "2px",
+                  verticalAlign: "middle",
+                  animation: "blink 1s step-end infinite"
+                }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Clean Resilient Notice for AI Rate Limits or Timeouts */}
+        {aiNotice && (
           <div
             style={{
               padding: "10px 16px",
               marginBottom: "16px",
               borderRadius: "10px",
-              background: "rgba(168, 85, 247, 0.08)",
-              border: "1px solid rgba(168, 85, 247, 0.25)",
+              background: "rgba(245, 158, 11, 0.08)",
+              border: "1px solid rgba(245, 158, 11, 0.35)",
               display: "flex",
               alignItems: "center",
+              justifyContent: "space-between",
               gap: "10px",
-              color: "#c084fc",
+              color: "#fbbf24",
               fontSize: "13px"
             }}
           >
-            <Sparkles size={15} className="spin-icon" />
-            <span>AI Multi-Agent synthesizing technical signals, balance sheet ratios & SEC filings for <strong>{ticker}</strong> in background...</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <AlertTriangle size={15} />
+              <span>{aiNotice}</span>
+            </div>
+            <button
+              onClick={() => setAiNotice("")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#fbbf24",
+                cursor: "pointer",
+                fontSize: "14px",
+                padding: "2px 6px"
+              }}
+              title="Dismiss notification"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -938,7 +1453,7 @@ ${activeStock.risks_text}
             {/* Soft Blue Price Callout Box */}
             <section className="price-callout-banner">
               <h1 className="callout-title">
-                {activeStock.company} ({ticker}) Current Price: ${currentDisplayPrice.toFixed(2)}
+                {activeStock.company} ({ticker}) Current Price: {currSymbol}{currentDisplayPrice.toFixed(2)}
               </h1>
               <p className="callout-subtitle">
                 Price Time: {activeStock.timestamp || `${liveTime.toISOString().slice(0, 10)} ${liveTime.toLocaleTimeString("en-US", { hour12: true })} ET`} <span className="live-badge">● REAL-TIME</span>
@@ -993,25 +1508,25 @@ ${activeStock.risks_text}
               <div className="stat-col">
                 <span className="stat-label">Stock Price <span className="term-expl">(Live)</span>:</span>
                 <span className="stat-val text-blue font-bold">
-                  ${currentDisplayPrice.toFixed(2)}
+                  {currSymbol}{currentDisplayPrice.toFixed(2)}
                 </span>
               </div>
               <div className="stat-col">
                 <span className="stat-label">SMA 50 <span className="term-expl">(50-Day Avg)</span>:</span>
                 <span className="stat-val text-purple font-bold">
-                  ${activeRecord?.sma50 || activeStock.sma50 ? (activeRecord?.sma50 || activeStock.sma50).toFixed(2) : "N/A"}
+                  {currSymbol}{activeRecord?.sma50 || activeStock.sma50 ? (activeRecord?.sma50 || activeStock.sma50).toFixed(2) : "N/A"}
                 </span>
               </div>
               <div className="stat-col">
                 <span className="stat-label">Support <span className="term-expl">(Price Floor)</span>:</span>
                 <span className="stat-val text-green font-bold">
-                  ${activeRecord?.support || activeStock.support ? (activeRecord?.support || activeStock.support).toFixed(2) : "N/A"}
+                  {currSymbol}{activeRecord?.support || activeStock.support ? (activeRecord?.support || activeStock.support).toFixed(2) : "N/A"}
                 </span>
               </div>
               <div className="stat-col">
                 <span className="stat-label">Resistance <span className="term-expl">(Price Ceiling)</span>:</span>
                 <span className="stat-val text-red font-bold">
-                  ${activeRecord?.resistance || activeStock.resistance ? (activeRecord?.resistance || activeStock.resistance).toFixed(2) : "N/A"}
+                  {currSymbol}{activeRecord?.resistance || activeStock.resistance ? (activeRecord?.resistance || activeStock.resistance).toFixed(2) : "N/A"}
                 </span>
               </div>
               <div className="stat-col">
@@ -1049,7 +1564,7 @@ ${activeStock.risks_text}
                             fill="#64748b"
                             fontFamily="monospace"
                           >
-                            ${tick.price}
+                            {currSymbol}{tick.price}
                           </text>
                         </g>
                       ))}
@@ -1176,29 +1691,88 @@ ${activeStock.risks_text}
               <div className="tech-compact-grid">
                 <div className="tech-chip-card">
                   <div className="chip-badge breakout">Breakout & Levels</div>
-                  <p className="chip-desc">
-                    Price at <strong>${currentDisplayPrice.toFixed(2)}</strong> testing Resistance <strong>${activeStock.resistance?.toFixed(2)}</strong> <span className="sub-expl">(Price ceiling where sellers pause)</span>.
-                  </p>
+                  {(() => {
+                    const p = currentDisplayPrice;
+                    const r = activeStock.resistance;
+                    const s = activeStock.support;
+                    let desc = "";
+                    if (r && p >= r * 0.99) {
+                      desc = `Price at ${currSymbol}${p.toFixed(2)} testing Resistance Ceiling at ${currSymbol}${r.toFixed(2)} (potential breakout or seller pause zone).`;
+                    } else if (s && p <= s * 1.01) {
+                      desc = `Price at ${currSymbol}${p.toFixed(2)} testing Support Floor at ${currSymbol}${s.toFixed(2)} (critical buyer safety level).`;
+                    } else if (s && r) {
+                      desc = `Price at ${currSymbol}${p.toFixed(2)} consolidating within range between Support (${currSymbol}${s.toFixed(2)}) and Resistance (${currSymbol}${r.toFixed(2)}).`;
+                    } else {
+                      desc = `Price at ${currSymbol}${p.toFixed(2)} maintaining dynamic price envelope.`;
+                    }
+                    return <p className="chip-desc">{desc}</p>;
+                  })()}
                 </div>
 
                 <div className="tech-chip-card">
-                  <div className="chip-badge trend">Trend Direction</div>
-                  <p className="chip-desc">
-                    SMA 20 ($<strong>{activeStock.sma20?.toFixed(2)}</strong>) &gt; SMA 50 ($<strong>{activeStock.sma50?.toFixed(2)}</strong>) <span className="sub-expl">(Simple Moving Average: strong upward trend)</span>.
-                  </p>
+                  {(() => {
+                    const s20 = activeStock.sma20;
+                    const s50 = activeStock.sma50;
+                    if (s20 === null || s20 === undefined || s50 === null || s50 === undefined) {
+                      return (
+                        <>
+                          <div className="chip-badge trend-neutral">Trend Direction</div>
+                          <p className="chip-desc">
+                            SMA 20 ({currSymbol}<strong>{s20?.toFixed(2) ?? "N/A"}</strong>) and SMA 50 ({currSymbol}<strong>{s50?.toFixed(2) ?? "N/A"}</strong>) <span className="sub-expl">(Calculating moving average alignment...)</span>.
+                          </p>
+                        </>
+                      );
+                    }
+                    const diffPct = (s20 - s50) / s50;
+                    const isFlat = Math.abs(diffPct) < 0.002;
+                    const isUp = s20 > s50;
+                    const operator = isFlat ? "≈" : isUp ? ">" : "<";
+                    const badgeClass = isFlat ? "chip-badge trend-neutral" : isUp ? "chip-badge trend" : "chip-badge trend-down";
+                    const trendExpl = isFlat
+                      ? "converging moving averages: sideways consolidation"
+                      : isUp
+                      ? "SMA 20 > SMA 50: short-term trend outperforming medium-term baseline; bullish momentum"
+                      : "SMA 20 < SMA 50: short-term trend lagging medium-term baseline; downward pressure";
+                    return (
+                      <>
+                        <div className={badgeClass}>{isFlat ? "Neutral Drift" : isUp ? "Upward Momentum" : "Downward Pressure"}</div>
+                        <p className="chip-desc">
+                          SMA 20 ({currSymbol}<strong>{s20.toFixed(2)}</strong>) {operator} SMA 50 ({currSymbol}<strong>{s50.toFixed(2)}</strong>){" "}
+                          <span className="sub-expl">({trendExpl})</span>.
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="tech-chip-card">
                   <div className="chip-badge momentum">Momentum Gauge</div>
-                  <p className="chip-desc">
-                    RSI at <strong>{activeStock.rsi?.toFixed(1)}</strong> <span className="sub-expl">(0–100 speed index; healthy momentum)</span> with bullish MACD signal.
-                  </p>
+                  {(() => {
+                    const rsi = activeStock.rsi;
+                    const macd = activeStock.macd;
+                    const macdSig = activeStock.macd_signal;
+                    let rsiDesc = "healthy momentum corridor";
+                    if (rsi !== null && rsi !== undefined) {
+                      if (rsi >= 70) rsiDesc = "overbought zone (watch for consolidation)";
+                      else if (rsi <= 30) rsiDesc = "oversold zone (potential accumulation)";
+                      else if (rsi >= 50) rsiDesc = "positive momentum corridor";
+                      else rsiDesc = "subdued momentum corridor";
+                    }
+                    const macdDesc = (macd !== undefined && macdSig !== undefined)
+                      ? (macd >= macdSig ? "bullish MACD momentum" : "bearish MACD crossover")
+                      : "monitoring MACD trend";
+                    return (
+                      <p className="chip-desc">
+                        RSI at <strong>{rsi ? rsi.toFixed(1) : "N/A"}</strong> <span className="sub-expl">(0–100 index: {rsiDesc})</span> with {macdDesc}.
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 <div className="tech-chip-card">
                   <div className="chip-badge safety">Safety & Volatility</div>
                   <p className="chip-desc">
-                    Floor Support at <strong>${activeStock.support?.toFixed(2)}</strong> <span className="sub-expl">(Buyer safety level)</span> inside Bollinger Bands channel.
+                    Floor Support at <strong>{currSymbol}{activeStock.support?.toFixed(2)}</strong> <span className="sub-expl">(Buyer safety level)</span> inside Bollinger Bands channel.
                   </p>
                 </div>
               </div>
@@ -1282,7 +1856,7 @@ ${activeStock.risks_text}
                     <h4>1. Financial & Valuation Risks</h4>
                   </div>
                   <p>
-                    P/E valuation ({activeStock.pe_ratio ? `${activeStock.pe_ratio}x` : "Growth multiple"}) and debt leverage ({activeStock.debt_to_equity}%) require consistent cash flow generation.
+                    P/E valuation ({formatPE(activeStock.pe_ratio)}) and debt leverage ({formatDebtEquity(activeStock.debt_to_equity)}) require consistent cash flow generation.
                   </p>
                 </div>
 
@@ -1292,7 +1866,7 @@ ${activeStock.risks_text}
                     <h4>2. Market & Macro Risks</h4>
                   </div>
                   <p>
-                    Interest rate shifts and broad index pullbacks could test baseline support levels near ${activeStock.support?.toFixed(2)}.
+                    Interest rate shifts and broad index pullbacks could test baseline support levels near {currSymbol}{activeStock.support?.toFixed(2)}.
                   </p>
                 </div>
 
@@ -1334,19 +1908,19 @@ ${activeStock.risks_text}
                   <span className="box-heading">Valuation Multiples</span>
                   <div className="metric-row">
                     <span>Market Cap <span className="m-note">(Total company value)</span></span>
-                    <strong>{formatNumber(activeStock.market_cap, "$")}</strong>
+                    <strong>{formatNumber(activeStock.market_cap, currSymbol)}</strong>
                   </div>
                   <div className="metric-row">
                     <span>Trailing P/E <span className="m-note">(Price vs past profit)</span></span>
-                    <strong>{activeStock.pe_ratio ? activeStock.pe_ratio.toFixed(2) : "N/A (Growth)"}</strong>
+                    <strong>{formatPE(activeStock.pe_ratio)}</strong>
                   </div>
                   <div className="metric-row">
                     <span>Forward P/E <span className="m-note">(Projected 1-yr valuation)</span></span>
-                    <strong>{activeStock.forward_pe ? activeStock.forward_pe.toFixed(2) : "N/A"}</strong>
+                    <strong>{formatPE(activeStock.forward_pe, true)}</strong>
                   </div>
                   <div className="metric-row">
                     <span>Price to Book <span className="m-note">(P/B vs net assets)</span></span>
-                    <strong>{activeStock.price_to_book ? activeStock.price_to_book.toFixed(2) : "N/A"}</strong>
+                    <strong>{formatPB(activeStock.price_to_book)}</strong>
                   </div>
                 </div>
 
@@ -1355,23 +1929,25 @@ ${activeStock.risks_text}
                   <div className="metric-row">
                     <span>Operating Margin <span className="m-note">(Core profit %)</span></span>
                     <strong className={activeStock.operating_margin > 0 ? "text-green" : "text-red"}>
-                      {activeStock.operating_margin !== null ? `${(activeStock.operating_margin * 100).toFixed(1)}%` : "N/A"}
+                      {formatPercent(activeStock.operating_margin)}
                     </strong>
                   </div>
                   <div className="metric-row">
                     <span>Net Profit Margin <span className="m-note">(Take-home profit %)</span></span>
                     <strong className={activeStock.profit_margin > 0 ? "text-green" : "text-red"}>
-                      {activeStock.profit_margin !== null ? `${(activeStock.profit_margin * 100).toFixed(1)}%` : "N/A"}
+                      {formatPercent(activeStock.profit_margin)}
                     </strong>
                   </div>
                   <div className="metric-row">
                     <span>Return on Equity <span className="m-note">(ROE efficiency %)</span></span>
-                    <strong>{activeStock.roe !== null ? `${(activeStock.roe * 100).toFixed(1)}%` : "N/A"}</strong>
+                    <strong className={activeStock.roe > 0 ? "text-green" : "text-red"}>
+                      {formatPercent(activeStock.roe)}
+                    </strong>
                   </div>
                   <div className="metric-row">
                     <span>YoY Revenue Growth <span className="m-note">(Annual sales rise)</span></span>
-                    <strong className="text-green">
-                      {activeStock.revenue_growth !== null ? `+${(activeStock.revenue_growth * 100).toFixed(1)}%` : "N/A"}
+                    <strong className={activeStock.revenue_growth >= 0 ? "text-green" : "text-red"}>
+                      {formatPercent(activeStock.revenue_growth, true)}
                     </strong>
                   </div>
                 </div>
@@ -1380,17 +1956,17 @@ ${activeStock.risks_text}
                   <span className="box-heading">Cash Flow & Health</span>
                   <div className="metric-row">
                     <span>Total Revenue <span className="m-note">(Annual gross sales)</span></span>
-                    <strong>{formatNumber(activeStock.total_revenue, "$")}</strong>
+                    <strong>{formatNumber(activeStock.total_revenue, currSymbol)}</strong>
                   </div>
                   <div className="metric-row">
                     <span>Free Cash Flow <span className="m-note">(FCF surplus cash)</span></span>
                     <strong className={activeStock.free_cash_flow > 0 ? "text-green" : "text-red"}>
-                      {formatNumber(activeStock.free_cash_flow, "$")}
+                      {formatNumber(activeStock.free_cash_flow, currSymbol)}
                     </strong>
                   </div>
                   <div className="metric-row">
                     <span>Debt to Equity <span className="m-note">(Financial leverage)</span></span>
-                    <strong>{activeStock.debt_to_equity ? `${activeStock.debt_to_equity.toFixed(1)}%` : "N/A"}</strong>
+                    <strong>{formatDebtEquity(activeStock.debt_to_equity)}</strong>
                   </div>
                   <div className="metric-row">
                     <span>Trading Volume <span className="m-note">(Liquidity activity)</span></span>
@@ -1444,8 +2020,8 @@ ${activeStock.risks_text}
                 <div className="comparison-box">
                   <div className="comp-stats-row">
                     <span>Previous Date: <strong>{activeStock.previous_date?.slice(0, 10)}</strong></span>
-                    <span>Previous Price: <strong>${activeStock.previous_price?.toFixed(2)}</strong></span>
-                    <span>Current Price: <strong>${currentDisplayPrice.toFixed(2)}</strong></span>
+                    <span>Previous Price: <strong>{currSymbol}{activeStock.previous_price?.toFixed(2)}</strong></span>
+                    <span>Current Price: <strong>{currSymbol}{currentDisplayPrice.toFixed(2)}</strong></span>
                     {activeStock.previous_price && (
                       <span className={currentDisplayPrice >= activeStock.previous_price ? "text-green font-bold" : "text-red font-bold"}>
                         Price Shift: {((currentDisplayPrice - activeStock.previous_price) / activeStock.previous_price * 100).toFixed(2)}%
@@ -1555,7 +2131,9 @@ ${activeStock.risks_text}
                     {item.current_price && (
                       <div className="hist-price-row">
                         <span>Price at Analysis:</span>
-                        <strong className="text-green">${Number(item.current_price).toFixed(2)}</strong>
+                        <strong className="text-green">
+                          {(item.currency_symbol || (item.ticker ? detectCurrency(item.ticker).symbol : "$"))}{Number(item.current_price).toFixed(2)}
+                        </strong>
                       </div>
                     )}
                     <h4 className="hist-query">"{item.user_query}"</h4>
